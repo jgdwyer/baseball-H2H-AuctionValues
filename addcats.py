@@ -108,7 +108,6 @@ def add_pitchers():
     p_mlbteam = [entry[1] for entry in pp]
     p_jaboteam = [entry[2] for entry in pp]
     p_salary = [entry[4] for entry in pp]
-
     with open(pitcher_projection_file) as f:
         f_csv=csv.reader(f)
         header = next(f_csv)
@@ -190,3 +189,82 @@ def add_pitchers():
                 #Print rows where we did not have a cbsid available
                 if mrow == row_count:
                      print(str(row[header.index("playerid")]) + " " + str(row[header.index("WAR")]) + " " + row[0])
+
+
+
+def separate_SP_RP():
+    ofSP=open('./tmp/pos/aSP.csv', "w")
+    ofRP=open('./tmp/pos/aRP.csv', "w")
+    ofSPRP=open('./tmp/pos/aSPRP.csv', "w")
+    ofNG=open('./tmp/NotPitchingin2017.csv', "w")
+    wSP=csv.writer(ofSP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wRP=csv.writer(ofRP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wSPRP=csv.writer(ofSPRP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wNG=csv.writer(ofNG, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    with open('./tmp/pitch2.csv') as f:
+        f_csv=csv.reader(f, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+        pitch=[entry for entry in f_csv ]
+    header=pitch.pop(0)
+    indGNS=header.index("GNS")
+    indGS=header.index("GS")
+    SP=[]
+    RP=[]
+    SPRP=[]
+    wSP.writerow(header)
+    wRP.writerow(header)
+    wSPRP.writerow(header)
+    wNG.writerow(header)
+    for row in pitch:
+        if row[indGS]>0 and row[indGNS]==0:
+            SP.append(row)
+            wSP.writerow(row)
+        elif row[indGS]==0 and row[indGNS]>0:
+            RP.append(row)
+            wRP.writerow(row)
+        elif row[indGS]==0 and row[indGNS]==0:
+            wNG.writerow(row)
+        else:
+            SPRP.append(row)
+            wSPRP.writerow(row)
+
+# NOTE that holds are already included in the depth chart projections this year!
+# def add_holds():
+#     holds_projection_file = './source_data/razzball_holds.csv'
+#     of = open('tmp/pitch3.csv',"wb")
+#     wof = csv.writer(of, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+#     #Load the main projections file
+#     with open('tmp/pitch2.csv') as f:
+#         f_csv = csv.reader(f, delimiter=',',quoting=csv.QUOTE_NONNUMERIC)
+#         main = [entry for entry in f_csv ]
+#     header_main = main.pop(0)
+#     #Load the razzball holds projections file
+#     h=csv.reader(open(holds_projection_file), delimiter=',')
+#     razz = [entry for entry in h]
+#     header_razz = razz.pop(0)
+#     r_name = [entry[header_razz.index('Name')] for entry in razz]
+#     r_ip = [entry[header_razz.index('IP')] for entry in razz]
+#     r_hd = [entry[header_razz.index('HLD')] for entry in razz]
+#     #Check to see if holds are already entered as a field (if they are, we can exit this loop)
+#     if sum(zip(*main)[header_main.index("HLD")]) == 0:
+#     #If holds aren't included in these projections, add them as an external projection file
+#     for row in main:
+#         try:
+#             ind=r_name.index(row[0])
+#             go=1
+#         except ValueError:
+#             go=0
+#         #Normalize by the innings projected by fangraphs..otherwise the projections will be inconsistent
+#         if go==1:
+#             if float(r_ip[ind])==0:
+#                 row[header_main.index("HLD")] = 0
+#             else:
+#                 row[header_main.index("HLD")] = round(float(row[header_main.index("IP")])*float(r_hd[ind])/float(r_ip[ind]))
+#
+#     #Write to file
+#     wof.writerow(header_main)
+#     for row in main:
+#         wof.writerow(row)
+#
+#     #Rename the old file and update the new one to the old one's name (this allows this script to be modular
+#     call(["mv","working/pitch2.csv", "working/pitch2_old.csv"])
+#     call(["mv","working/pitch3.csv", "working/pitch2.csv"])
