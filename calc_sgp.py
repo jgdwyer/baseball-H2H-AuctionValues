@@ -1,5 +1,6 @@
 import csv
 import numpy as np
+import bisect
 
 N_teams = 14
 N_activehitters = 9
@@ -101,3 +102,84 @@ def sgp_hitters(asgp=[0,0,0,0,0,0,0,0]):
     #Write all rows to file
     for row in statsall:
         writer.writerow(row)
+
+def addpos():
+    """This function writes the eligible cbssports positions to the projections file"""
+    cbs_h = './tmp/cbs_hitters.csv'
+    #Have to treat C and U speciall (C b/c it's contained in CF, and U b/c can't have any other strings in it)
+    poslist=['1B','2B','3B','SS','LF','CF','RF']
+    poslistw=['w1B','w2B','w3B','wSS','wLF','wCF','wRF']
+    #Open csv writer files for each position
+    ofC=open('./tmp/pos/C.csv',"w")
+    of1B=open('./tmp/pos/1B.csv',"w")
+    of2B=open('./tmp/pos/2B.csv',"w")
+    of3B=open('./tmp/pos/3B.csv',"w")
+    ofSS=open('./tmp/pos/SS.csv',"w")
+    ofLF=open('./tmp/pos/LF.csv',"w")
+    ofCF=open('./tmp/pos/CF.csv',"w")
+    ofRF=open('./tmp/pos/RF.csv',"w")
+    ofUonly=open('./tmp/pos/Uonly.csv',"w")
+    ofUall=open('./tmp/pos/Uall.csv',"w")
+    #writer = csv.writer(ofile, delimiter=',')#, quotechar='"', quoting=csv.QUOTE_ALL)
+    wC=csv.writer(ofC, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    w1B=csv.writer(of1B, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    w2B=csv.writer(of2B, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    w3B=csv.writer(of3B, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wSS=csv.writer(ofSS, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wLF=csv.writer(ofLF, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wCF=csv.writer(ofCF, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wRF=csv.writer(ofRF, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wUonly=csv.writer(ofUonly, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    wUall=csv.writer(ofUall, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    posdict = {'w1B': w1B, 'w2B': w2B, 'w3B': w3B, 'wSS': wSS, 'wLF': wLF,
+               'wCF': wCF, 'wRF': wRF}
+    #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
+    #Load csv data of player cbsid, player name, and mlb team
+    p1file=csv.reader(open(cbs_h), delimiter=',') #not quoting because the ids should be strings (and they aren't quoted in file)
+    pp=[entry for entry in p1file]
+    #Now get lists of each entry
+    p_cbsid = [entry[0] for entry in pp]
+    #p_name=zip(*p_id_name_mlbteam)[1]
+    p_mlbteam = [entry[1] for entry in pp]
+    p_jaboteam = [entry[2] for entry in pp]
+    p_positions = [entry[3] for entry in pp]
+    p_salary = [entry[4] for entry in pp]
+
+    #Now load our hitters' projections file and funnel anyone eligible at catcher to an output file
+    with open('tmp/hitssgp.csv') as f:
+        f_csv=csv.reader(f,delimiter=',',quoting=csv.QUOTE_NONNUMERIC)
+        header = next(f_csv)
+        #Append a few new fields to the header that were obtained from the jabo cbssports html
+        header.append("positions")
+        header.append("mlb")
+        header.append("jabo")
+        header.append("sal")
+        #Write the header row to some output files
+        wC.writerow(header)
+        wUonly.writerow(header)
+        wUall.writerow(header)
+        for w2 in poslistw:
+            posdict[w2].writerow(header)
+        for row in f_csv:
+            #Get the index of each csv id
+            try:
+                ind=p_cbsid.index(row[header.index("cbsid")])
+                #add the positions and other info to each row
+                row.append(p_positions[ind])
+                row.append(p_mlbteam[ind])
+                row.append(p_jaboteam[ind])
+                row.append(int(p_salary[ind]))
+            except:
+    	    #Give a message if unable to find the index value
+                strr='Could not find index: '+row[header.index("cbsid")]+' in the lookup table.\nCorresponds to '+row[0]+'\n'
+                print(strr)
+                continue
+            #Find the position and write to the total U file
+            wUall.writerow(row)
+            if "C" in p_positions[ind] and "CF" not in p_positions[ind]:
+                wC.writerow(row)
+            if "U" == p_positions[ind]:
+                wUonly.writerow(row)
+            for w2,ps in zip( poslistw,poslist):
+                if ps in p_positions[ind]:
+                    posdict[w2].writerow(row)
