@@ -1,9 +1,16 @@
 import csv
 import numpy as np
 import bisect
+from subprocess import call #for calling mkdir
 
 N_teams = 14
 N_activehitters = 9
+budget = 260
+frac_hitter_budget = 0.5
+output_dir = "./output/dc_3_6_2017/"
+
+pos_dict = {'C': 2, '1B': 3, '2B': 4, '3B': 5, 'SS': 6, 'LF': 7, 'CF': 8,
+          'RF': 9, 'U': 1}
 
 #Define a function to take the mean and std of a column of the data
 def mean_and_std(fooy, colind):
@@ -330,10 +337,8 @@ def get_post_num(posstring):
     """Take the position strin and turns it into a number(s) (3=1B, 4=2B, etc.)"""
     q = posstring.split(',')
     posnum = []
-    r_dict = {'C': 2, '1B': 3, '2B': 4, '3B': 5, 'SS': 6, 'LF': 7, 'CF': 8,
-              'RF': 9, 'U': 1}
     for r in q:
-        posnum.append(r_dict[r])
+        posnum.append(pos_dict[r])
     return posnum
 
 
@@ -353,3 +358,166 @@ def get_rank(listo,sgp):
     if index == 0:
         index = ''
     return index
+
+
+
+
+
+
+
+def add_pos_sgp():
+    #First make the output directory if it doesn't exist
+    call(["mkdir", "-p", output_dir])
+    #Load the files into lists
+    # Invert the position dictionary
+    pos_dict_inv = {v: k for k, v in pos_dict.items()}
+    pos_dict_inv[0] = 'Uall'
+    csvw = dict()
+    for i in range(0, 10):
+        csvw[i] = csv.writer(open(output_dir + pos_dict_inv[i] + '.csv', 'w'),
+                                    delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    p10a=open('./tmp/pos/Ulast.csv',"w")
+    p10=csv.writer(p10a, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    hitters=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
+    hitters2=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
+    hdr=hitters2.pop(0)
+    sgp_pos_addends = list(csv.reader(open('tmp/sgp_pos_addends.csv'), delimiter=',',quoting=csv.QUOTE_NONNUMERIC))#, quotech
+    sgp_pos_addends=sgp_pos_addends[0]
+    #The first value is garbage, we need to ignore it
+    # print(sgp_pos_addends)
+    #Sort the list
+    sgp_pos_add_sort=sorted(range(10), key=lambda k: sgp_pos_addends[k])
+    # print sgp_pos_add_sort
+    sgp_pos_add_sort.remove(0)
+    # print sgp_pos_add_sort
+    #Reverse the list order so we are sorting descending
+    sgp_pos_add_sort.reverse()
+    # print sgp_pos_add_sort
+    #Remove the header from the Uall list
+    header=hitters.pop(0)
+    indSGP=header.index("SGP")
+    indcbsid=header.index("cbsid")
+    indpos=header.index("positions")
+
+    header.append("p_SGP")
+    hdr.append("p_SGP")
+    #Copy header so that we can reorder the values in the list
+    #Rearrange the column order..note that this is for the header and we have to repeat this below for the actual row entries in the loop
+    catlist=["Name", "xusal", "xsal", "sal", "dsal", "mlb", "jabo", "positions",
+             "PA", "AVG", "OBP", "SLG", "HR", "SB", "sAVG", "sOBP", "sSLG",
+             "sR", "sRBI", "sTB", "sHR", "sSB", "R", "RBI", "wOBA", "WAR",
+             "playerid", "SGP", "p_SGP"]
+    #Write the header in each of the output files
+    for i in range(0, 10):
+        csvw[i].writerow(catlist)
+    p10.writerow(catlist)
+    #Initialize
+    navg=nobp=nslg=nhr=nr=nrbi=nsb=ntb=nsgp=0
+    #Now go thru each player, add their new score and add them to the appropriate output list
+    cntrr=0
+    for row in hitters:
+        hitters3=list(csv.reader(open('./tmp/pos/Uall.csv'), delimiter=',',
+                                 quoting=csv.QUOTE_NONNUMERIC))
+        header=hitters3.pop(0)
+        header.append("p_SGP")
+        cntrr += 1
+        #Get position numbers from the position string
+        posnum=get_post_num(row[indpos])
+        #Check to see if the player gets extra points -- the following go IN ORDER
+        q=row[indpos].split(',')
+        for posits in q:
+            sgp_addend=0
+            for pn in sgp_pos_add_sort:
+                if pn in posnum:
+                    sgp_addend = sgp_pos_addends[pn]
+        row.append(row[indSGP] - sgp_addend)
+        #Count the sgp in each category
+        navg += row[header.index("sAVG")]
+        nobp += row[header.index("sOBP")]
+        nslg += row[header.index("sSLG")]
+        nhr += row[header.index("sHR")]
+        nr += row[header.index("sR")]
+        nrbi += row[header.index("sRBI")]
+        nsb += row[header.index("sSB")]
+        ntb += row[header.index("sTB")]
+        nsgp += row[header.index("SGP")]
+        #Now format each row with the appropriate number of digits for aestheticly pleasing viewing
+        statcats = ["PA", 'AB', 'H', '2B', '3B', "HR", "R", "RBI", "BB",
+                       "SO", "HBP", "SB", "CS", "wAVG", "wOBP", "wSLG", "sAVG",
+                       "sOBP", "sSLG", "sHR", "sR", "sRBI", "sSB", "sTB", 'SGP', 'p_SGP']
+        for statcat in statcats:
+            if statcat in ['wAVG', 'wOBP', 'wSLG']:
+                row[header.index(statcat)] = int(row[header.index(statcat)]*10000/10000)
+            elif statcat in ["sAVG", "sOBP", "sSLG", "sHR", "sR", "sRBI", "sSB", "sTB", 'SGP', 'p_SGP']:
+                row[header.index(statcat)] = int(row[header.index(statcat)]*10/10)
+            else: #integer
+                row[header.index(statcat)] = int(row[header.index(statcat)])
+        #Reorder the row: Name, SGP,p_SGP, Pos, PA/AB, avg/obp/sgl, sgpcats, scoring cats, other
+        row2=[] #initialize
+        for cat in catlist:
+            try:
+                row2.append(row[header.index(cat)])
+            except ValueError:
+                row2.append(0)
+        p10.writerow(row2)
+    p10a.close() #was running into a bug..i think the csv writer wasn't closed and it was giving a strange error. explicitly close the open file before beginning tor read it
+    #Now need to normalize SGP and p_SGP so that the sum of the owned players add up to the total amount of points
+    #Also save the final output files for each position
+    #Load the Ulast
+    h1file=csv.reader(open('./tmp/pos/Ulast.csv'),delimiter=',',
+                           quoting=csv.QUOTE_NONNUMERIC)
+    data = [entry for entry in h1file]
+    #with open('working/Ulast.csv', 'rb') as h1file:
+    #    reader=csv.reader(h1file,delimiter=',',quoting=csv.QUOTE_NONNUMERIC)
+    #    data=list(reader)
+    data_header = data.pop(0) #There's only one line in this file--h_sgp refers to header for this file
+    print(data_header)
+    print(len(data_header))
+    print(len(data[0]))
+    #Sort the list in terms of descending p_SGP
+    #print data_header.index("p_SGP")
+    #print zip(*data)[header.index("p_SGP")]
+    data.sort(key=lambda data: data[data_header.index("p_SGP")], reverse=True)
+    #Get the sum of SGP and p_SGP of the owned, starting players
+    sgp_sum=p_sgp_sum=0
+    for i in range(0,N_teams*N_activehitters-1):
+        sgp_sum=sgp_sum+data[i][data_header.index("SGP")]
+        p_sgp_sum=p_sgp_sum+data[i][data_header.index("p_SGP")]
+    #Get the difference from what it should be
+    sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)#/(N_teams*N_activehitters)  #8 hitting cats
+    p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)#/(N_teams*N_activehitters)
+    # print sgp_diff
+    # print p_sgp_diff
+    # print data_header
+    #Now loop over all this data and subtract this value off of all players SGP and p_SGP and save in rows
+    for row in data:
+        #Subtract offsets
+        #row[data_header.index("SGP")] = row[data_header.index("SGP")]+sgp_diff
+        #row[data_header.index("p_SGP")] = row[data_header.index("p_SGP")]+p_sgp_diff
+        #Make the output of these columns look nice
+        row[data_header.index("SGP")] = round(row[data_header.index("SGP")]*10)/10
+        row[data_header.index("p_SGP")] = round(row[data_header.index("p_SGP")]*10)/10
+        #Add two new columns
+        #"xs_salary","xp_salary","diff_salary"
+        xss=row[data_header.index("SGP")]/sgp_sum*budget*frac_hitter_budget*N_teams #multiply by hitter portion of budget
+        xps=row[data_header.index("p_SGP")]/p_sgp_sum*budget*frac_hitter_budget*N_teams
+        ds = row[data_header.index("sal")]-xps
+        row[data_header.index("xusal")]=xss
+        row[data_header.index("xsal")]=xps
+        row[data_header.index("dsal")]=ds
+        #Do some rounding
+        row[data_header.index("xusal")]=round(row[data_header.index("xusal")])
+        row[data_header.index("xsal")]=round(row[data_header.index("xsal")])
+        row[data_header.index("dsal")]=round(row[data_header.index("dsal")])
+        #Get position numbers
+        posnum=get_post_num(row[data_header.index("positions")])
+        #Now put the hitters into the master list and positional lists
+        #Also add the sgp for the top 140 hitters in each category
+        csvw[0].writerow(row)
+        if "U" == row[data_header.index("positions")]:
+            csvw[1].writerow(row)
+        else:
+            for posits in posnum:
+                #This is the uonly case
+                if posits != 1:
+                    csvw[posits].writerow(row)
