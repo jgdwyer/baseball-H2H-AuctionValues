@@ -183,3 +183,173 @@ def addpos():
             for w2,ps in zip( poslistw,poslist):
                 if ps in p_positions[ind]:
                     posdict[w2].writerow(row)
+
+
+
+def calc_pos_scarcity():
+    #Have to treat C and U speciall (C b/c it's contained in CF, and U b/c can't have any other strings in it)
+    poslist=['1B','2B','3B','SS','LF','CF','RF']
+    poslistw=['w1B','w2B','w3B','wSS','wLF','wCF','wRF']
+    #ofUonly=open('Uonly.csv',"r")
+    #ofUall=open('Uall.csv',"r")
+    o_list=['o1','o2','o3','o4','o5','o6','o7','o8','o9']
+    p_list = ['p0','p1','p2','p3','p4','p5','p6','p7','p8','p9']
+    allpos_list = ['Uall','Uonly','C','1B','2B','3B','SS','LF','CF','RF']
+    #Initialize these lists
+    #Load the files into lists (p0,p1, etc.)
+    pdict = dict()
+    odict = dict()
+    for p, pos in zip(p_list, allpos_list):
+        pdict[p] = list(csv.reader(open('tmp/pos/' + pos + '.csv'), delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
+    for o in o_list:
+        #Initiailize each list by putting in the best hitter (will remove later)
+        odict[o] = [pdict['p0'][1]]
+    #Remove the header from the Uall list
+    header = pdict['p0'].pop(0)
+    print(header)
+    #Now go through the list in order of players in p0 (Uall) and assign them positions based on the best rank they would be at at each position. Break ties with the defensive spectrum
+    #Note that it doesn't actually matter who is in each list. The point is to get replacement values
+    for row in pdict['p0']:
+        #Get the numbers corresponding to each player's eligible positions
+        posnum=get_post_num(row[header.index("positions")])
+        #Get the sgp of the player in this row
+        sgp=row[header.index("SGP")]
+        #now get the rank of the available positions
+        posrank=[]
+        #Loop over all positions this player is eligible at
+        #Get the SGP of all players at each eligible position
+        for nums in posnum:
+            # try:
+                # print(header.index("SGP"))
+                # print(nums)
+                # print(list(zip(*odict["o"+str(nums)])))
+            sgpofcolumn=list(zip(*odict["o" + str(nums)]))[header.index("SGP")]
+                #print nums
+                # print(sgpofcolumn)
+            #Not sure what this error is trying to catch...an empty list?
+            # except TypeError:
+            #     sgpofcolumn=[]
+            #     sgpofcolumn.append(odict["o"+str(nums)][header.index("SGP")])
+            #For each eligible position, find out how many players are better (by SGP)
+            posrank.append(get_rank(sgpofcolumn,sgp))
+            #End position loop
+        print(posrank)
+        #Get which position the player would be the next best at by finding the one with the least number of better players at it
+        indices = [i for i, x in enumerate(posrank) if x == min(posrank)]
+        print(indices)
+        bestposits=[]
+        #Need to sort out how to deal with ties:
+        #First initialize a new variable with all tied positions
+        for i in indices:
+            bestposits.append(posnum[i])
+        print(bestposits)
+        #In the case of ties, go down the defensive spectrum
+        defensive_spectrum=[1, 3, 9, 7, 8, 5, 4, 6, 2]
+        #Values overwrite each other so the toughest to fill position is left at the end
+        for pp in defensive_spectrum:
+            if pp in bestposits: bestpos=pp
+        #Finally print the row to the appropriate file
+        odict["o"+str(bestpos)].append(row)
+        #print(row)
+        print(bestpos)
+        print('fooya')
+        #FINISH looping through all entries in the Uall file
+    #Now remove the initialized value of the best hitter in each list
+    for o in o_list:
+        odict[o].pop(0)
+    #Load the previous sgp file to add to it
+    sgp_old = list(csv.reader(open('./tmp/sgp_addends.csv'), delimiter=',',
+                   quoting=csv.QUOTE_NONNUMERIC))
+    sgp_old=sgp_old[0]
+    #Get the headers too
+    h1file=csv.reader(open('./source_data/sgp_thresh_lastyear_header.csv'),
+                      delimiter=',')
+    h_sgp=[entry for entry in h1file]
+    h_sgp=h_sgp.pop(0)
+    indsgpcat=[0]*8
+    indsgpcat[0]=header.index("sR")
+    indsgpcat[1]=header.index("sHR")
+    indsgpcat[2]=header.index("sRBI")
+    indsgpcat[3]=header.index("sSB")
+    indsgpcat[4]=header.index("sTB")
+    indsgpcat[5]=header.index("sAVG")
+    indsgpcat[6]=header.index("sOBP")
+    indsgpcat[7]=header.index("sSLG")
+    #also need to account for the bench hitters. assume every team carries 3. then 42 extra hitters. more than 4 teams owrth
+    stardiff=[]
+    starthresh=[]
+    #We need to normalize SGP so that the total available SGP of all hitters is the number of points that can be gained (i.e., for each category, there are 14 teams, so there are 13 points to be gained in each for each)
+    for k in range(0,8): #loop over hitting categories
+        star=0
+        for i in range(0,N_teams): #Loop over #teams+4
+            for j in range(1,10): #Loop over positions
+                #Load the sum of SGP for each category for the top N_teams+4 players at each position since this will represent the total number of owned hitters
+                star += odict["o"+str(j)][i][indsgpcat[k]]
+                print(i, j, star, odict["o"+str(j)][i])
+        #We're aiming to minimize this total in order that the sum of points of all the owned players represents the correct
+        #Use sum(i=1:N,i)=(N+1)N/2
+        #Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
+        #total number of sgp that can be gained by all teams..each category should have the same # ofthese
+        #N_teams not N_teams+4
+        staradd = star - N_teams*(N_teams-1)/2 #N_teams-1    #N_teams*(N_teams-1)/2
+        #This is the offset threshold that gets added on so that the total number of category points are right
+        starthresh.append(staradd)
+        #This gets added in to the old values
+        #Divide the difference by the total number of active players since all  will be contributing to the category
+        staradd=sgp_old[k] + staradd/((N_teams)*N_activehitters)
+        stardiff.append(staradd)
+        print("endo")
+    print(star, "diff", staradd, staradd/(N_teams*N_activehitters))
+    #stardiff=staradd/(N_teams*9)
+    writer = csv.writer(open('./source_data/sgp_addends.csv',"w"), delimiter=',',
+                        quoting=csv.QUOTE_NONNUMERIC)
+    writer.writerow(stardiff)
+    #Write the offsets to each SGP category
+    writer2 = csv.writer(open('./source_data/sgp_thresh.csv',"w"), delimiter=',',
+                         quoting=csv.QUOTE_NONNUMERIC)
+    writer2.writerow(starthresh)
+    #Now print the rows in each file
+    cnt=0
+    sgp_pos_addends=[0]*10
+    for cnt in range(0, N_teams): #+4
+        print(cnt)
+        #print(p9[cnt][0]+" "+str(p9[cnt][header.index("SGP")]))
+        if (cnt==N_teams-1): #+4
+            sgp_pos_addends[0]=0
+            for ii in range(1, 10):
+                print(ii)
+                sgp_pos_addends[ii] = odict['o' + str(ii)][cnt][header.index("SGP")]
+    print(sgp_pos_addends)
+    writer3 = csv.writer(open('./tmp/sgp_pos_addends.csv',"w"), delimiter=',',
+                         quoting=csv.QUOTE_NONNUMERIC)
+    writer3.writerow(sgp_pos_addends)
+
+
+
+def get_post_num(posstring):
+    """Take the position strin and turns it into a number(s) (3=1B, 4=2B, etc.)"""
+    q = posstring.split(',')
+    posnum = []
+    r_dict = {'C': 2, '1B': 3, '2B': 4, '3B': 5, 'SS': 6, 'LF': 7, 'CF': 8,
+              'RF': 9, 'U': 1}
+    for r in q:
+        posnum.append(r_dict[r])
+    return posnum
+
+
+def get_rank(listo,sgp):
+    """returns the index of the first item in a sorted list (must be descending)
+     whose value is less than an input value"""
+    #Get the first item in the list whose value falls under the entered one
+    try:
+        index = next(index for index, value in enumerate(listo) if value < sgp)
+    #If we reach the end of the list use the last entry as the index
+    except StopIteration:
+        index = len(listo)
+    #If the largest value in the list is the first one below the input value,
+    # return an empty string. This is meant for the case in which the player
+    # is the best at their position and accounts for players being placed at
+    # U when they should really go to another list
+    if index == 0:
+        index = ''
+    return index
