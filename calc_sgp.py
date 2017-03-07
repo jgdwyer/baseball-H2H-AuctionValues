@@ -19,7 +19,7 @@ def mean_and_std(fooy, colind):
     ss = np.std(data)
     return mm,ss
 
-def sgp_hitters(asgp=[0,0,0,0,0,0,0,0]):
+def sgp_hitters(asgp):
     # This script calculates the sgp points hitters get in each category
     # The name of our output file
     ofile = open('tmp/hitssgp.csv', 'w')
@@ -146,12 +146,10 @@ def addpos():
     pp=[entry for entry in p1file]
     #Now get lists of each entry
     p_cbsid = [entry[0] for entry in pp]
-    #p_name=zip(*p_id_name_mlbteam)[1]
     p_mlbteam = [entry[1] for entry in pp]
     p_jaboteam = [entry[2] for entry in pp]
     p_positions = [entry[3] for entry in pp]
     p_salary = [entry[4] for entry in pp]
-
     #Now load our hitters' projections file and funnel anyone eligible at catcher to an output file
     with open('tmp/hitssgp.csv') as f:
         f_csv=csv.reader(f,delimiter=',',quoting=csv.QUOTE_NONNUMERIC)
@@ -193,7 +191,7 @@ def addpos():
 
 
 
-def calc_pos_scarcity():
+def calc_pos_scarcity(sgp_addends):
     #Have to treat C and U speciall (C b/c it's contained in CF, and U b/c can't have any other strings in it)
     poslist=['1B','2B','3B','SS','LF','CF','RF']
     poslistw=['w1B','w2B','w3B','wSS','wLF','wCF','wRF']
@@ -207,13 +205,13 @@ def calc_pos_scarcity():
     pdict = dict()
     odict = dict()
     for p, pos in zip(p_list, allpos_list):
-        pdict[p] = list(csv.reader(open('tmp/pos/' + pos + '.csv'), delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
+        pdict[p] = list(csv.reader(open('tmp/pos/' + pos + '.csv'), delimiter=',',
+                                   quoting=csv.QUOTE_NONNUMERIC))
     for o in o_list:
         #Initiailize each list by putting in the best hitter (will remove later)
         odict[o] = [pdict['p0'][1]]
     #Remove the header from the Uall list
     header = pdict['p0'].pop(0)
-    print(header)
     #Now go through the list in order of players in p0 (Uall) and assign them positions based on the best rank they would be at at each position. Break ties with the defensive spectrum
     #Note that it doesn't actually matter who is in each list. The point is to get replacement values
     for row in pdict['p0']:
@@ -226,30 +224,17 @@ def calc_pos_scarcity():
         #Loop over all positions this player is eligible at
         #Get the SGP of all players at each eligible position
         for nums in posnum:
-            # try:
-                # print(header.index("SGP"))
-                # print(nums)
-                # print(list(zip(*odict["o"+str(nums)])))
             sgpofcolumn=list(zip(*odict["o" + str(nums)]))[header.index("SGP")]
-                #print nums
-                # print(sgpofcolumn)
-            #Not sure what this error is trying to catch...an empty list?
-            # except TypeError:
-            #     sgpofcolumn=[]
-            #     sgpofcolumn.append(odict["o"+str(nums)][header.index("SGP")])
             #For each eligible position, find out how many players are better (by SGP)
             posrank.append(get_rank(sgpofcolumn,sgp))
             #End position loop
-        print(posrank)
         #Get which position the player would be the next best at by finding the one with the least number of better players at it
         indices = [i for i, x in enumerate(posrank) if x == min(posrank)]
-        print(indices)
         bestposits=[]
         #Need to sort out how to deal with ties:
         #First initialize a new variable with all tied positions
         for i in indices:
             bestposits.append(posnum[i])
-        print(bestposits)
         #In the case of ties, go down the defensive spectrum
         defensive_spectrum=[1, 3, 9, 7, 8, 5, 4, 6, 2]
         #Values overwrite each other so the toughest to fill position is left at the end
@@ -257,17 +242,10 @@ def calc_pos_scarcity():
             if pp in bestposits: bestpos=pp
         #Finally print the row to the appropriate file
         odict["o"+str(bestpos)].append(row)
-        #print(row)
-        print(bestpos)
-        print('fooya')
         #FINISH looping through all entries in the Uall file
     #Now remove the initialized value of the best hitter in each list
     for o in o_list:
         odict[o].pop(0)
-    #Load the previous sgp file to add to it
-    sgp_old = list(csv.reader(open('./tmp/sgp_addends.csv'), delimiter=',',
-                   quoting=csv.QUOTE_NONNUMERIC))
-    sgp_old=sgp_old[0]
     #Get the headers too
     h1file=csv.reader(open('./source_data/sgp_thresh_lastyear_header.csv'),
                       delimiter=',')
@@ -286,13 +264,14 @@ def calc_pos_scarcity():
     stardiff=[]
     starthresh=[]
     #We need to normalize SGP so that the total available SGP of all hitters is the number of points that can be gained (i.e., for each category, there are 14 teams, so there are 13 points to be gained in each for each)
+    sgp_new = [0]*8
     for k in range(0,8): #loop over hitting categories
         star=0
         for i in range(0,N_teams): #Loop over #teams+4
             for j in range(1,10): #Loop over positions
                 #Load the sum of SGP for each category for the top N_teams+4 players at each position since this will represent the total number of owned hitters
                 star += odict["o"+str(j)][i][indsgpcat[k]]
-                print(i, j, star, odict["o"+str(j)][i])
+                # print(i, j, star, odict["o"+str(j)][i])
         #We're aiming to minimize this total in order that the sum of points of all the owned players represents the correct
         #Use sum(i=1:N,i)=(N+1)N/2
         #Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
@@ -303,14 +282,7 @@ def calc_pos_scarcity():
         starthresh.append(staradd)
         #This gets added in to the old values
         #Divide the difference by the total number of active players since all  will be contributing to the category
-        staradd=sgp_old[k] + staradd/((N_teams)*N_activehitters)
-        stardiff.append(staradd)
-        print("endo")
-    print(star, "diff", staradd, staradd/(N_teams*N_activehitters))
-    #stardiff=staradd/(N_teams*9)
-    writer = csv.writer(open('./source_data/sgp_addends.csv',"w"), delimiter=',',
-                        quoting=csv.QUOTE_NONNUMERIC)
-    writer.writerow(stardiff)
+        sgp_new[k] = sgp_addends[k] + staradd/((N_teams)*N_activehitters)
     #Write the offsets to each SGP category
     writer2 = csv.writer(open('./source_data/sgp_thresh.csv',"w"), delimiter=',',
                          quoting=csv.QUOTE_NONNUMERIC)
@@ -319,18 +291,11 @@ def calc_pos_scarcity():
     cnt=0
     sgp_pos_addends=[0]*10
     for cnt in range(0, N_teams): #+4
-        print(cnt)
-        #print(p9[cnt][0]+" "+str(p9[cnt][header.index("SGP")]))
         if (cnt==N_teams-1): #+4
             sgp_pos_addends[0]=0
             for ii in range(1, 10):
-                print(ii)
                 sgp_pos_addends[ii] = odict['o' + str(ii)][cnt][header.index("SGP")]
-    print(sgp_pos_addends)
-    writer3 = csv.writer(open('./tmp/sgp_pos_addends.csv',"w"), delimiter=',',
-                         quoting=csv.QUOTE_NONNUMERIC)
-    writer3.writerow(sgp_pos_addends)
-
+    return sgp_new, sgp_pos_addends
 
 
 def get_post_num(posstring):
@@ -365,7 +330,7 @@ def get_rank(listo,sgp):
 
 
 
-def add_pos_sgp():
+def add_pos_sgp(sgp_pos_addends):
     #First make the output directory if it doesn't exist
     call(["mkdir", "-p", output_dir])
     #Load the files into lists
@@ -381,10 +346,7 @@ def add_pos_sgp():
     hitters=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
     hitters2=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
     hdr=hitters2.pop(0)
-    sgp_pos_addends = list(csv.reader(open('tmp/sgp_pos_addends.csv'), delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
-    sgp_pos_addends=sgp_pos_addends[0]
     #The first value is garbage, we need to ignore it
-    # print(sgp_pos_addends)
     #Sort the list
     sgp_pos_add_sort=sorted(range(10), key=lambda k: sgp_pos_addends[k])
     sgp_pos_add_sort.remove(0)
@@ -452,9 +414,9 @@ def add_pos_sgp():
         #Reorder the row: Name, SGP,p_SGP, Pos, PA/AB, avg/obp/sgl, sgpcats, scoring cats, other
         row2=[] #initialize
         for cat in catlist:
-            try:
+            if cat in header:
                 row2.append(row[header.index(cat)])
-            except ValueError:
+            else:
                 row2.append(0)
         p10.writerow(row2)
     p10a.close() #was running into a bug..i think the csv writer wasn't closed and it was giving a strange error. explicitly close the open file before beginning tor read it
