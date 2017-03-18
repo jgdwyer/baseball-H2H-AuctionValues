@@ -1,15 +1,39 @@
 import csv
+import pandas as pd
 
 masterid_file = './source_data/ids.csv'
 
 
 def add_hitters():
+    hitter_projection_file = './source_data/proj_dc_hitters.csv'
+    # Load hitter projection file and write new columns
+    hitter_projection_file = './source_data/proj_dc_hitters.csv'
+    df = pd.read_csv(hitter_projection_file)
+    df['1B'] = df['H'] - (df['2B'] - df['3B'] - df['HR'])
+    df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
+    # Load the id's
+    idkey = pd.read_csv('./source_data/ids.csv')
+    idkey['cbs_id'] = idkey['cbs_id'].astype('str')
+    # Merge dataframes (SQL-style)
+    out = df.merge(idkey[['fg_id', 'cbs_id']], left_on='playerid',
+                 right_on='fg_id', how='left')
+    #Manually add cbs ids for certain players
+    out.loc[out.playerid=='3711', 'cbs_id'] ='1741019'
+    out.loc[out.playerid=='sa737507', 'cbs_id'] = '2066300'
+    # Show the best missing hitters that our id file doesn't have
+    print("Best hitters without id's. Manually add these guys in:")
+    print(out[out['cbs_id'].isnull()][['Name', 'Team','WAR','playerid']].\
+        sort_values('WAR')[::-1][:10])
+    # Remove rows that are null in fangraph ids
+    out = out[out['cbs_id'].notnull()]
+    out.to_csv('tmp/hits2.csv', index=False)
+    return out
+
+def _add_hitters():
     """This script loops through out hitter's projections and adds cbs ids to
     each player. It also categorizes each entry as floats or strings and adds
     two more derived categories (singles and total bases). Finally when piped
     out, it writes to file the players for which I don't have a cbs id """
-
-    hitter_projection_file = './source_data/proj_dc_hitters.csv'
 
     #The id file we will use to add the cbsids to each players entry
     #master id file is loaded from namelist
