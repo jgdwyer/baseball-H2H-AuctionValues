@@ -2,6 +2,7 @@ import csv
 import numpy as np
 import bisect
 from subprocess import call #for calling mkdir
+import pandas as pd
 
 N_teams = 14
 N_activehitters = 9
@@ -20,6 +21,44 @@ def mean_and_std(fooy, colind):
     return mm,ss
 
 def sgp_hitters(asgp):
+    # This script calculates the sgp points hitters get in each category
+    # The name of our output file
+    output_filename = 'tmp/hitssgp.csv'
+    #Load our projections file and populate entries in two new lists
+    df = pd.read_csv('./tmp/hits2.csv')
+    # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
+    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
+    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
+    # Sort the data
+    df = df.sort_values(by='wOBA')[::-1]
+    # Remove the botttom entries of the data
+    df = df.head(N_activehitters * N_teams)
+    # Calculate "wAVG"
+    numer = (N_activehitters - 1) * df['H'].mean() + df['H']
+    denom = (N_activehitters - 1) * df['AB'].mean() + df['AB']
+    df['wAVG'] = numer/denom - df['AVG'].mean()
+    # Calculate wOBA
+    monbase = df['PA'].mean() * df['OBP'].mean()
+    numer = (N_activehitters - 1) * monbase + df['H'] + df['BB'] + df['HBP']
+    denom = (N_activehitters - 1) * df['PA'].mean() + df['PA']
+    df['wOBP'] = numer/denom - df['OBP'].mean()
+    # Calculate wSLG
+    numer = (N_activehitters - 1) * df['TB'].mean() + df['TB']
+    denom = (N_activehitters - 1) * df['AB'].mean() + df['AB']
+    df['wSLG'] = numer/denom - df['SLG'].mean()
+    #Now get the sgp by dividing by the values calculated from last year's totals
+    for cat in ['AVG', 'OBP', 'SLG']:
+        df['s' + cat] = df['w' + cat] / sgp[cat][0] - asgp[cat][0]
+    for cat in ['HR', 'R', 'RBI', 'SB', 'TB']:
+        df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - asgp[cat][0]
+    #Sum up all of these entries to get the total SGP
+    df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
+    #Now sort by total SGP descending
+    df = df.sort_values(by='SGP')[::-1]
+    df.to_csv(output_filename, index=False)
+    return df
+
+def _sgp_hitters(asgp):
     # This script calculates the sgp points hitters get in each category
     # The name of our output file
     ofile = open('tmp/hitssgp.csv', 'w')
