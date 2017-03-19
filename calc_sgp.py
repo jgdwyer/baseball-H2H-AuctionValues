@@ -56,7 +56,7 @@ def sgp_hitters(asgp):
     #Now sort by total SGP descending
     df = df.sort_values(by='SGP')[::-1]
     df.to_csv(output_filename, index=False)
-#     return df
+    # return df
 #
 # def _sgp_hitters(asgp):
 #     # This script calculates the sgp points hitters get in each category
@@ -261,7 +261,90 @@ def addpos():
 #                     posdict[w2].writerow(row)
 
 
-def calc_pos_scarcity(sgp_addends):
+def calc_pos_scarcity(sgp_addends, meta):
+    #Initiailize each list by putting in the best hitter (will remove later)
+    meta_ranked = dict()
+    for m in meta:
+        meta_ranked[m] = meta[m].head(1)
+        if m=='Uonly':
+            # TEMPORARY FIX UNTIL UONLY IS CORRECTLY DONE ABOVE
+            meta_ranked[m] = meta['U'].head(1)
+    #Now go through the list in order of players in p0 (Uall) and assign them positions based on the best rank they would be at at each position. Break ties with the defensive spectrum
+    #Note that it doesn't actually matter who is in each list. The point is to get replacement values
+    for _, row in meta['U'].iterrows():
+        #Get the sgp of the player in this row
+        sgp = row['SGP']
+        #now get the rank of the available positions
+        posrank = dict()
+        #Loop over all positions this player is eligible at
+        #Get the SGP of all players at each eligible position
+        for pos in row['Pos'].split(','):
+            sgpofcolumn = meta_ranked[pos]['SGP'].get_values()
+            #For each eligible position, find out how many players are better (by SGP)
+            posrank[pos] = get_rank(sgpofcolumn, sgp)
+        #Get which position the player would be the next best at by finding the
+        # one with the least number of better players at it
+        highest = min(posrank.values())
+        bestposits = [k for k, v in posrank.items() if v == highest]
+        #In the case of ties, go down the defensive spectrum
+        defensive_spectrum = ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B',
+                              'SS', 'C']
+        #Values overwrite each other so the toughest to fill position is left at the end
+        for pp in defensive_spectrum:
+            if pp in bestposits:
+                bestpos = pp
+        #Finally add the row to the end of the correct dataframe
+        meta_ranked[bestpos] = meta_ranked[bestpos].append(row, ignore_index='True')
+    #Now remove the initialized value of the best hitter in each list
+    for m in meta_ranked:
+        meta_ranked[m] = meta_ranked[m].drop(0)
+        meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
+    #Get the headers too
+    # Get the SGP replacement level headers from the matlab script
+    #(Get_SGP_thresholds_from_lastyeardata.m)
+    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
+    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
+    #also need to account for the bench hitters. assume every team carries 3.
+    # then 42 extra hitters. more than 4 teams worth
+    stardiff = []
+    starthresh = dict()
+    #We need to normalize SGP so that the total available SGP of all hitters is
+    # the number of points that can be gained (i.e., for each category, there are
+    # 14 teams, so there are 13 points to be gained in each for each)
+    sgp_new = dict()
+    for sgpcat in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']:
+        #loop over hitting categories
+        star = 0
+        for i in range(0, N_teams): #Loop over #teams+4
+            for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: # NO UONLY
+                #Load the sum of SGP for each category for the top N_teams+4
+                #players at each position since this will represent the total
+                # number of owned hitters
+                star += meta_ranked[pos][sgpcat][i]
+        #We're aiming to minimize this total in order that the sum of points of
+        # all the owned players represents the correct
+        #Use sum(i=1:N,i)=(N+1)N/2
+        #Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
+        #total number of sgp that can be gained by all teams..each category should have the same # ofthese
+        #N_teams not N_teams+4
+        starthresh[sgpcat] = star - N_teams*(N_teams-1)/2
+        #N_teams-1    #N_teams*(N_teams-1)/2
+        #This is the offset threshold that gets added on so that the total number of category points are right
+        #This gets added in to the old values
+        #Divide the difference by the total number of active players since all  will be contributing to the category
+        sgp_new[sgpcat] = sgp_addends[sgpcat] + \
+                          starthresh[sgpcat]/((N_teams)*N_activehitters)
+    #Print the offsets to each SGP category
+    print(starthresh)
+    #Now print the rows in each file
+    cnt=0
+    sgp_pos_addends = dict()
+    for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: #defensive_spectrum:
+        print(pos)
+        sgp_pos_addends[pos] = meta_ranked[pos]['SGP'][N_teams-1]
+    return sgp_new, sgp_pos_addends
+
+def _calc_pos_scarcity(sgp_addends):
     #Have to treat C and U speciall (C b/c it's contained in CF, and U b/c can't have any other strings in it)
     poslist=['1B','2B','3B','SS','LF','CF','RF']
     poslistw=['w1B','w2B','w3B','wSS','wLF','wCF','wRF']
