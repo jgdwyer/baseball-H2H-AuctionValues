@@ -9,11 +9,10 @@ def add_hitters():
     # Load hitter projection file and write new columns
     hitter_projection_file = './source_data/proj_dc_hitters.csv'
     df = pd.read_csv(hitter_projection_file)
-    df['1B'] = df['H'] - (df['2B'] - df['3B'] - df['HR'])
+    df['1B'] = df['H'] - (df['2B'] + df['3B'] + df['HR'])
     df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
     # Load the id's
-    idkey = pd.read_csv('./source_data/ids.csv')
-    idkey['cbs_id'] = idkey['cbs_id'].astype('str')
+    idkey = pd.read_csv('./source_data/ids.csv', dtype={'cbs_id': str})
     # Merge dataframes (SQL-style)
     out = df.merge(idkey[['fg_id', 'cbs_id']], left_on='playerid',
                  right_on='fg_id', how='left')
@@ -28,93 +27,6 @@ def add_hitters():
     out = out[out['cbs_id'].notnull()]
     out.to_csv('tmp/hits2.csv', index=False)
     return out
-
-def _add_hitters():
-    """This script loops through out hitter's projections and adds cbs ids to
-    each player. It also categorizes each entry as floats or strings and adds
-    two more derived categories (singles and total bases). Finally when piped
-    out, it writes to file the players for which I don't have a cbs id """
-
-    #The id file we will use to add the cbsids to each players entry
-    #master id file is loaded from namelist
-    #The hitter projections we will loop through
-    #This file is loaded from the namelist
-
-    ofile = open('tmp/hits2.csv', 'w')
-    writer = csv.writer(ofile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    #Open the projections file and loop through it
-    with open(hitter_projection_file) as f:
-        f_csv = csv.reader(f)
-        # Get the header from the hitter projections
-        header = next(f_csv)
-        # Loop through the header and determine whether each entry is a float or str
-        # Start off by defining them all as floats and then convert some to strings
-        col_types = [float]*(len(header) - 1 + 4)
-        #Add these three entries to the header file
-        header.append("1B")
-        header.append("TB")
-        header.append("cbsid")
-        #First entry is the name, but there is some weird stuff (e.g. \xef)..get rid of that
-        header[0] = "Name"
-        col_types[0] = str #Set the name column to be a string
-        #Define certain column entries as strings
-        col_types[header.index("playerid")] = str
-        col_types[header.index("cbsid")] = str
-        if "Team" in header:
-            col_types[header.index("Team")] = str
-        # Perform list comprehension on the data to find any columns with "-1" as
-        # the header..the data fields in this column are empty strings
-        indices = [i for i, x in enumerate(header) if x == "-1"]
-        for entry in indices:
-            col_types[entry] = str
-        #Write the header row to the output file
-        writer.writerow(header)
-        #Open the file that has all of the IDs
-        id_csv = list(csv.reader(open(masterid_file)))
-        #Get the header line of the id file
-        id_header = id_csv.pop(0)
-        #Count the total number of rows in the eligibility file not including the header
-        row_count = sum(1 for row in id_csv)
-        #Get the list index value of where the following id values are in the id file
-        ind_id_fgid=id_header.index("fg_id")
-        ind_id_cbsid=id_header.index("cbs_id")
-
-        #Loop over rows in our projections file
-        for row in f_csv:
-    	#Turn the data in each row into its proper datatype (string or float)
-            row=list(convert(value) for convert, value in zip(col_types,row))
-            #Add new hitting columns: 1B & TB
-            row.append(row[header.index("H")] - row[header.index("2B")] - row[header.index("3B")] - row[header.index("HR")])
-            row.append(row[header.index("1B")]*1 + row[header.index("2B")]*2 + row[header.index("3B")]*3 + row[header.index("HR")]*4)
-
-            #Now loop through each row in our id master file to find the one with the matching fangraphs id
-            mrow = 0 #initialize this variable
-            for idrow in id_csv:
-                if row[header.index("playerid")] == idrow[ind_id_fgid]: #and not idrow[ind_id_cbsid]:
-                    try:
-                        #Add the cbsid to the end of this row
-                        row.append(str(idrow[ind_id_cbsid]))
-                        #Write this row to file
-                        writer.writerow(row)
-                        break #exit loop
-                    except ValueError as ve:
-                        pass
-                #Increment row by one
-                mrow += 1
-                #Print rows where we did not have a cbsid available
-                if mrow == row_count:
-                    #Manually add in some key players who were unlisted for some reason
-                    #if 1==2:
-                    #    print "just a placeholder"
-                    if row[header.index("playerid")]=="18717":
-                        row.append("2210864") #byung-ho park
-                        writer.writerow(row)
-                    elif row[header.index("playerid")]=="18718":
-                        row.append("2215560") #Hyun-soo Kim
-                        writer.writerow(row)
-                    #Write to a different file (actually print to screen, but when this script is called will be saved)
-                    else:
-                        print(str(row[header.index("playerid")]) + " " + str(row[header.index("WAR")]) + " " + row[0])
 
 
 
