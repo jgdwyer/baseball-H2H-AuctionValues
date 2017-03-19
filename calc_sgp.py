@@ -178,6 +178,9 @@ def addpos():
     for _, row in out.iterrows():
         for pos in row['Pos'].split(','):
             meta[pos] = meta[pos].append(row, ignore_index='True')
+        # Handle the case when the only eligible position is utility
+        if row['Pos'] == 'U':
+            meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
     return meta
 
 
