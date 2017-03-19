@@ -31,21 +31,21 @@ def sgp_hitters(asgp):
     sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
     # Sort the data
     df = df.sort_values(by='wOBA')[::-1]
-    # Remove the botttom entries of the data
-    df = df.head(N_activehitters * N_teams)
+    # Keep only the top players for calculating averages for rate categories
+    top_hitters = df.head(N_activehitters * N_teams)
     # Calculate "wAVG"
-    numer = (N_activehitters - 1) * df['H'].mean() + df['H']
-    denom = (N_activehitters - 1) * df['AB'].mean() + df['AB']
-    df['wAVG'] = numer/denom - df['AVG'].mean()
+    numer = (N_activehitters - 1) * top_hitters['H'].mean() + df['H']
+    denom = (N_activehitters - 1) * top_hitters['AB'].mean() + df['AB']
+    df['wAVG'] = numer/denom - top_hitters['AVG'].mean()
     # Calculate wOBA
-    monbase = df['PA'].mean() * df['OBP'].mean()
+    monbase = top_hitters['PA'].mean() * top_hitters['OBP'].mean()
     numer = (N_activehitters - 1) * monbase + df['H'] + df['BB'] + df['HBP']
-    denom = (N_activehitters - 1) * df['PA'].mean() + df['PA']
-    df['wOBP'] = numer/denom - df['OBP'].mean()
+    denom = (N_activehitters - 1) * top_hitters['PA'].mean() + df['PA']
+    df['wOBP'] = numer/denom - top_hitters['OBP'].mean()
     # Calculate wSLG
-    numer = (N_activehitters - 1) * df['TB'].mean() + df['TB']
-    denom = (N_activehitters - 1) * df['AB'].mean() + df['AB']
-    df['wSLG'] = numer/denom - df['SLG'].mean()
+    numer = (N_activehitters - 1) * top_hitters['TB'].mean() + df['TB']
+    denom = (N_activehitters - 1) * top_hitters['AB'].mean() + df['AB']
+    df['wSLG'] = numer/denom - top_hitters['SLG'].mean()
     #Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['AVG', 'OBP', 'SLG']:
         df['s' + cat] = df['w' + cat] / sgp[cat][0] - asgp[cat][0]
