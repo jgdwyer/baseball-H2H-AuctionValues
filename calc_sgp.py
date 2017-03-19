@@ -48,9 +48,9 @@ def sgp_hitters(asgp):
     df['wSLG'] = numer/denom - top_hitters['SLG'].mean()
     #Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['AVG', 'OBP', 'SLG']:
-        df['s' + cat] = df['w' + cat] / sgp[cat][0] - asgp[cat][0]
+        df['s' + cat] = df['w' + cat] / sgp[cat][0] - asgp['s' + cat][0]
     for cat in ['HR', 'R', 'RBI', 'SB', 'TB']:
-        df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - asgp[cat][0]
+        df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - asgp['s' + cat][0]
     #Sum up all of these entries to get the total SGP
     df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
     #Now sort by total SGP descending
