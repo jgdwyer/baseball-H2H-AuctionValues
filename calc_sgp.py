@@ -269,9 +269,6 @@ def calc_pos_scarcity(sgp_addends, meta):
     meta_ranked = dict()
     for m in meta:
         meta_ranked[m] = meta[m].head(1)
-        if m=='Uonly':
-            # TEMPORARY FIX UNTIL UONLY IS CORRECTLY DONE ABOVE
-            meta_ranked[m] = meta['U'].head(1)
     #Now go through the list in order of players in p0 (Uall) and assign them positions based on the best rank they would be at at each position. Break ties with the defensive spectrum
     #Note that it doesn't actually matter who is in each list. The point is to get replacement values
     for _, row in meta['U'].iterrows():
