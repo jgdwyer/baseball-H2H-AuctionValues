@@ -8,7 +8,7 @@ N_teams = 14
 N_activehitters = 9
 budget = 260
 frac_hitter_budget = 0.5
-output_dir = "./output/dc_3_6_2017/"
+output_dir = "./output/dc_3_19_2017/"
 
 pos_dict = {'C': 2, '1B': 3, '2B': 4, '3B': 5, 'SS': 6, 'LF': 7, 'CF': 8,
           'RF': 9, 'U': 1}
@@ -30,7 +30,7 @@ def sgp_hitters(df, asgp):
     header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
     sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
     # Sort the data
-    df = df.sort_values(by='wOBA')[::-1]
+    df = df.sort_values(by='wOBA', ascending=False)
     # Keep only the top players for calculating averages for rate categories
     top_hitters = df.head(N_activehitters * N_teams)
     # Calculate "wAVG"
@@ -54,7 +54,7 @@ def sgp_hitters(df, asgp):
     #Sum up all of these entries to get the total SGP
     df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
     #Now sort by total SGP descending
-    df = df.sort_values(by='SGP')[::-1]
+    df = df.sort_values(by='SGP', ascending=False)
     df = df.reset_index(drop=True)
     # df.to_csv(output_filename, index=False)
     return df
@@ -93,10 +93,6 @@ def addpos(df):
         if row['Pos'] == 'U':
             meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
     return meta
-
-
-
-
 
 def calc_pos_scarcity(sgp_addends, meta):
     #Initiailize each list by putting in the best hitter (will remove later)
@@ -208,146 +204,80 @@ def get_rank(listo,sgp):
     return index
 
 
-
-
-
-
-
-def add_pos_sgp(sgp_pos_addends):
+def add_pos_sgp(udf, sgp_pos_addends):
     #First make the output directory if it doesn't exist
     call(["mkdir", "-p", output_dir])
     #Load the files into lists
-    # Invert the position dictionary
-    pos_dict_inv = {v: k for k, v in pos_dict.items()}
-    pos_dict_inv[0] = 'Uall'
-    csvw = dict()
-    for i in range(0, 10):
-        csvw[i] = csv.writer(open(output_dir + pos_dict_inv[i] + '.csv', 'w'),
-                                    delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    p10a=open('./tmp/pos/Ulast.csv',"w")
-    p10=csv.writer(p10a, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    hitters=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
-    hitters2=list(csv.reader(open('tmp/pos/Uall.csv'),delimiter=',',quoting=csv.QUOTE_NONNUMERIC))
-    hdr=hitters2.pop(0)
-    #The first value is garbage, we need to ignore it
     #Sort the list
-    sgp_pos_add_sort=sorted(range(10), key=lambda k: sgp_pos_addends[k])
-    sgp_pos_add_sort.remove(0)
-    #Reverse the list order so we are sorting descending
-    sgp_pos_add_sort.reverse()
-    #Remove the header from the Uall list
-    header=hitters.pop(0)
-    indSGP = header.index("SGP")
-    indcbsid = header.index("cbsid")
-    indpos = header.index("positions")
-    header.append("p_SGP")
-    hdr.append("p_SGP")
+    sgp_pos_add_sort = sorted(sgp_pos_addends.items(),
+                              key=lambda sgp_pos_addends: sgp_pos_addends[1],
+                              reverse=True) # should go largest to smallest
+                              # largest corresponds to best offensive poistion
+    print(sgp_pos_add_sort)
+    # IGNORE FIRST VALUE???
     # Copy header so that we can reorder the values in the list
     # Rearrange the column order..note that this is for the header and we have
     # to repeat this below for the actual row entries in the loop
-    catlist=["Name", "xusal", "xsal", "sal", "dsal", "mlb", "jabo", "positions",
-             "PA", "AVG", "OBP", "SLG", "HR", "SB", "sAVG", "sOBP", "sSLG",
-             "sR", "sRBI", "sTB", "sHR", "sSB", "R", "RBI", "wOBA", "WAR",
-             "playerid", "SGP", "p_SGP"]
-    # Write the header in each of the output files
-    for i in range(0, 10):
-        csvw[i].writerow(catlist)
-    p10.writerow(catlist)
+
     # Initialize
-    navg=nobp=nslg=nhr=nr=nrbi=nsb=ntb=nsgp=0
+    sgp_addend = [0] * len(udf)
     # Now go thru each player, add their new score and add them to the appropriate output list
-    cntrr=0
-    for row in hitters:
-        hitters3 = list(csv.reader(open('./tmp/pos/Uall.csv'), delimiter=',',
-                                 quoting=csv.QUOTE_NONNUMERIC))
-        header=hitters3.pop(0)
-        header.append("p_SGP")
-        cntrr += 1
-        # Get position numbers from the position string
-        posnum=get_post_num(row[indpos])
+    for cntrr, row in udf.iterrows():
         # Check to see if the player gets extra points -- the following go IN ORDER
-        q=row[indpos].split(',')
-        for posits in q:
-            sgp_addend=0
-            for pn in sgp_pos_add_sort:
-                if pn in posnum:
-                    sgp_addend = sgp_pos_addends[pn]
-        row.append(row[indSGP] - sgp_addend)
-        # Count the sgp in each category
-        navg += row[header.index("sAVG")]
-        nobp += row[header.index("sOBP")]
-        nslg += row[header.index("sSLG")]
-        nhr += row[header.index("sHR")]
-        nr += row[header.index("sR")]
-        nrbi += row[header.index("sRBI")]
-        nsb += row[header.index("sSB")]
-        ntb += row[header.index("sTB")]
-        nsgp += row[header.index("SGP")]
-        #Now format each row with the appropriate number of digits for aestheticly pleasing viewing
-        statcats = ["PA", 'AB', 'H', '2B', '3B', "HR", "R", "RBI", "BB",
-                       "SO", "HBP", "SB", "CS", "wAVG", "wOBP", "wSLG", "sAVG",
-                       "sOBP", "sSLG", "sHR", "sR", "sRBI", "sSB", "sTB", 'SGP', 'p_SGP']
-        for statcat in statcats:
-            if statcat in ['wAVG', 'wOBP', 'wSLG']:
-                row[header.index(statcat)] = int(row[header.index(statcat)]*10000/10000)
-            elif statcat in ["sAVG", "sOBP", "sSLG", "sHR", "sR", "sRBI", "sSB", "sTB", 'SGP', 'p_SGP']:
-                row[header.index(statcat)] = int(row[header.index(statcat)]*10/10)
-            else: #integer
-                row[header.index(statcat)] = int(row[header.index(statcat)])
-        #Reorder the row: Name, SGP,p_SGP, Pos, PA/AB, avg/obp/sgl, sgpcats, scoring cats, other
-        row2=[] #initialize
-        for cat in catlist:
-            if cat in header:
-                row2.append(row[header.index(cat)])
-            else:
-                row2.append(0)
-        p10.writerow(row2)
-    p10a.close() #was running into a bug..i think the csv writer wasn't closed and it was giving a strange error. explicitly close the open file before beginning tor read it
-    #Now need to normalize SGP and p_SGP so that the sum of the owned players add up to the total amount of points
-    #Also save the final output files for each position
-    #Load the Ulast
-    h1file=csv.reader(open('./tmp/pos/Ulast.csv'),delimiter=',',
-                           quoting=csv.QUOTE_NONNUMERIC)
-    data = [entry for entry in h1file]
-    #with open('working/Ulast.csv', 'rb') as h1file:
-    #    reader=csv.reader(h1file,delimiter=',',quoting=csv.QUOTE_NONNUMERIC)
-    #    data=list(reader)
-    data_header = data.pop(0) #There's only one line in this file--h_sgp refers to header for this file
-    data.sort(key=lambda data: data[data_header.index("p_SGP")], reverse=True)
+        for pp in sgp_pos_add_sort:
+            if pp[0] in row['Pos'].split(','):
+                sgp_addend[cntrr] = pp[1]
+    print(sgp_addend)
+    # Create position assigned row
+    udf['p_SGP'] = udf['SGP'] - sgp_addend
+
+    # Sort dataframe by descending p_SGP
+    udf = udf.sort_values(by='p_SGP', ascending=False)
+    udf = udf.reset_index(drop=True)
     #Get the sum of SGP and p_SGP of the owned, starting players
-    sgp_sum=p_sgp_sum=0
-    for i in range(0,N_teams*N_activehitters-1):
-        sgp_sum=sgp_sum+data[i][data_header.index("SGP")]
-        p_sgp_sum=p_sgp_sum+data[i][data_header.index("p_SGP")]
+    sgp_sum = udf['SGP'][:N_teams * N_activehitters].sum()
+    p_sgp_sum = udf['p_SGP'][:N_teams * N_activehitters].sum()
     #Get the difference from what it should be
     sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)#/(N_teams*N_activehitters)  #8 hitting cats
     p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)#/(N_teams*N_activehitters)
-    #Now loop over all this data and subtract this value off of all players SGP and p_SGP and save in rows
-    for row in data:
-        #Make the output of these columns look nice
-        row[data_header.index("SGP")] = round(row[data_header.index("SGP")]*10)/10
-        row[data_header.index("p_SGP")] = round(row[data_header.index("p_SGP")]*10)/10
-        #Add two new columns
-        #"xs_salary","xp_salary","diff_salary"
-        xss = row[data_header.index("SGP")]/sgp_sum*budget*frac_hitter_budget*N_teams #multiply by hitter portion of budget
-        xps = row[data_header.index("p_SGP")]/p_sgp_sum*budget*frac_hitter_budget*N_teams
-        ds = row[data_header.index("sal")] - xps
-        row[data_header.index("xusal")] = xss
-        row[data_header.index("xsal")] = xps
-        row[data_header.index("dsal")] = ds
-        # Do some rounding
-        row[data_header.index("xusal")] = round(row[data_header.index("xusal")])
-        row[data_header.index("xsal")] = round(row[data_header.index("xsal")])
-        row[data_header.index("dsal")] = round(row[data_header.index("dsal")])
-        # Get position numbers
-        posnum = get_post_num(row[data_header.index("positions")])
-        # Now put the hitters into the master list and positional lists
-        # Also add the sgp for the top 140 hitters in each category
-        csvw[0].writerow(row)
-        if "U" == row[data_header.index("positions")]:
-            csvw[1].writerow(row)
-        else:
-            for posits in posnum:
-                #This is the uonly case
-                if posits != 1:
-                    csvw[posits].writerow(row)
+    print('sgp diff (should be near zero):')
+    print(sgp_diff)
+    print('p_sgp diff (should be near zero):')
+    print(p_sgp_diff)
+    #Now loop over all this data and subtract this value off of all players SGP and p_SGP and save in rows???
+    udf['xusal'] = udf['SGP'] / sgp_sum * budget * frac_hitter_budget * N_teams
+    udf['xsal'] = udf['p_SGP'] / p_sgp_sum * budget * frac_hitter_budget * N_teams
+    udf['dsal'] = udf['Salary'] - udf['xsal']
+    # Round the dataframe
+    rounding_dict = {'wAVG': 3, 'wOBP': 3, 'wSLG': 3, "sAVG": 1, "sOBP": 1,
+                     "sSLG": 1, "sHR": 1, "sR": 1, "sRBI": 1, "sSB": 1,
+                     "sTB": 1, 'SGP': 1, 'p_SGP': 1, 'xusal': 0, 'xpsal': 0,
+                     'dsal':0}
+    udf = udf.round(rounding_dict)
+    # Reorder columns
+    column_order = ["Name", "xusal", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "Pos",
+                 "PA", "AVG", "OBP", "SLG", "HR", "SB", "sAVG", "sOBP", "sSLG",
+                 "sR", "sRBI", "sTB", "sHR", "sSB", "R", "RBI", "wOBA", "WAR",
+                 "playerid", "SGP", "p_SGP"]
+    udf = udf[column_order]
+    # Create a dict of data frames
+    meta2 = {'RF': pd.DataFrame(columns=udf.columns),
+            'CF': pd.DataFrame(columns=udf.columns),
+            'LF': pd.DataFrame(columns=udf.columns),
+            '1B': pd.DataFrame(columns=udf.columns),
+            '2B': pd.DataFrame(columns=udf.columns),
+            'SS': pd.DataFrame(columns=udf.columns),
+            '3B': pd.DataFrame(columns=udf.columns),
+            'C': pd.DataFrame(columns=udf.columns),
+            'U': pd.DataFrame(columns=udf.columns),
+            'Uonly': pd.DataFrame(columns=udf.columns)}
+    for _, row in udf.iterrows():
+        for pos in row['Pos'].split(','):
+            meta2[pos] = meta2[pos].append(row, ignore_index='True')
+        # Handle the case when the only eligible position is utility
+        if row['Pos'] == 'U':
+            meta2['Uonly'] = meta2['Uonly'].append(row, ignore_index='True')
+    # Write each to file
+    for key, _ in meta2.items():
+        meta2[key].to_csv(output_dir + key + '.csv', index=False)
+    return udf
