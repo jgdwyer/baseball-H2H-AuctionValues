@@ -62,36 +62,17 @@ def sgp_hitters(df, asgp):
 
 def addpos(df):
     """This function writes the eligible cbssports positions to the projections file"""
-    cbs_h = './tmp/cbs_hitters.csv'
-
     #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
     #Load csv data of player cbsid, player name, and mlb team
     cbs = pd.read_csv('./tmp/cbs_hitters.csv',
                     names=['cbs_id', 'mlb_team','jabo_team', 'Pos', 'Salary'],
                     dtype={'cbs_id':str})
-    #Now load our hitters' projections file and funnel anyone eligible at catcher to an output file
-    # df = pd.read_csv('./tmp/hitssgp.csv', dtype={'cbs_id': str})
     out = df.merge(cbs, left_on='cbs_id', right_on='cbs_id', how='inner')
     print('Some data in the cbs players file is NA -- removing it:')
     print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'wOBA']])
     out = out[out['Pos'].notnull()]
     # Create a dict of data frames
-    meta = {'RF': pd.DataFrame(columns=out.columns),
-            'CF': pd.DataFrame(columns=out.columns),
-            'LF': pd.DataFrame(columns=out.columns),
-            '1B': pd.DataFrame(columns=out.columns),
-            '2B': pd.DataFrame(columns=out.columns),
-            'SS': pd.DataFrame(columns=out.columns),
-            '3B': pd.DataFrame(columns=out.columns),
-            'C': pd.DataFrame(columns=out.columns),
-            'U': pd.DataFrame(columns=out.columns),
-            'Uonly': pd.DataFrame(columns=out.columns)}
-    for _, row in out.iterrows():
-        for pos in row['Pos'].split(','):
-            meta[pos] = meta[pos].append(row, ignore_index='True')
-        # Handle the case when the only eligible position is utility
-        if row['Pos'] == 'U':
-            meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
+    meta = assign_positions_to_dataframes(udf)
     return meta
 
 def calc_pos_scarcity(sgp_addends, meta):
@@ -244,23 +225,31 @@ def add_pos_sgp(udf, sgp_pos_addends):
                  "playerid", "SGP", "p_SGP"]
     udf = udf[column_order]
     # Create a dict of data frames
-    meta2 = {'RF': pd.DataFrame(columns=udf.columns),
-            'CF': pd.DataFrame(columns=udf.columns),
-            'LF': pd.DataFrame(columns=udf.columns),
-            '1B': pd.DataFrame(columns=udf.columns),
-            '2B': pd.DataFrame(columns=udf.columns),
-            'SS': pd.DataFrame(columns=udf.columns),
-            '3B': pd.DataFrame(columns=udf.columns),
-            'C': pd.DataFrame(columns=udf.columns),
-            'U': pd.DataFrame(columns=udf.columns),
-            'Uonly': pd.DataFrame(columns=udf.columns)}
-    for _, row in udf.iterrows():
+    meta = assign_positions_to_dataframes(udf)
+    # Write each to file
+    for key, _ in meta.items():
+        meta[key].to_csv(output_dir + key + '.csv', index=False)
+    return udf
+
+
+def assign_positions_to_dataframes(df):
+    """Given an input dataframe, create a dictionary of dataframes for each
+    position and assign each player to one or more of the position dataframes"""
+    meta = {'RF': pd.DataFrame(columns=df.columns),
+            'CF': pd.DataFrame(columns=df.columns),
+            'LF': pd.DataFrame(columns=df.columns),
+            '1B': pd.DataFrame(columns=df.columns),
+            '2B': pd.DataFrame(columns=df.columns),
+            'SS': pd.DataFrame(columns=df.columns),
+            '3B': pd.DataFrame(columns=df.columns),
+            'C': pd.DataFrame(columns=df.columns),
+            'U': pd.DataFrame(columns=df.columns),
+            'Uonly': pd.DataFrame(columns=df.columns)}
+    # For each player, write a new row for each position
+    for _, row in df.iterrows():
         for pos in row['Pos'].split(','):
-            meta2[pos] = meta2[pos].append(row, ignore_index='True')
+            meta[pos] = meta[pos].append(row, ignore_index='True')
         # Handle the case when the only eligible position is utility
         if row['Pos'] == 'U':
-            meta2['Uonly'] = meta2['Uonly'].append(row, ignore_index='True')
-    # Write each to file
-    for key, _ in meta2.items():
-        meta2[key].to_csv(output_dir + key + '.csv', index=False)
-    return udf
+            meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
+    return meta
