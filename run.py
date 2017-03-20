@@ -16,8 +16,8 @@ def do_hitters():
         print('Loop {:d}'.format(i))
         print(sgp_addends)
         print(sgp_pos_addends)
-    return meta_ranked
-    # calc_sgp.add_pos_sgp(sgp_pos_addends)
+    out = calc_sgp.add_pos_sgp(meta, sgp_pos_addends)
+    return out
 
 
 def do_pitchers():
