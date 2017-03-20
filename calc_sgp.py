@@ -129,7 +129,6 @@ def calc_pos_scarcity(sgp_addends, meta):
     for m in meta_ranked:
         meta_ranked[m] = meta_ranked[m].drop(0)
         meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
-    #Get the headers too
     # Get the SGP replacement level headers from the matlab script
     #(Get_SGP_thresholds_from_lastyeardata.m)
     header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
@@ -175,17 +174,6 @@ def calc_pos_scarcity(sgp_addends, meta):
     return sgp_new, sgp_pos_addends, meta_ranked
 
 
-
-
-def get_post_num(posstring):
-    """Take the position strin and turns it into a number(s) (3=1B, 4=2B, etc.)"""
-    q = posstring.split(',')
-    posnum = []
-    for r in q:
-        posnum.append(pos_dict[r])
-    return posnum
-
-
 def get_rank(listo,sgp):
     """returns the index of the first item in a sorted list (must be descending)
      whose value is less than an input value"""
@@ -215,10 +203,6 @@ def add_pos_sgp(udf, sgp_pos_addends):
                               # largest corresponds to best offensive poistion
     print(sgp_pos_add_sort)
     # IGNORE FIRST VALUE???
-    # Copy header so that we can reorder the values in the list
-    # Rearrange the column order..note that this is for the header and we have
-    # to repeat this below for the actual row entries in the loop
-
     # Initialize
     sgp_addend = [0] * len(udf)
     # Now go thru each player, add their new score and add them to the appropriate output list
@@ -230,21 +214,20 @@ def add_pos_sgp(udf, sgp_pos_addends):
     print(sgp_addend)
     # Create position assigned row
     udf['p_SGP'] = udf['SGP'] - sgp_addend
-
     # Sort dataframe by descending p_SGP
     udf = udf.sort_values(by='p_SGP', ascending=False)
     udf = udf.reset_index(drop=True)
-    #Get the sum of SGP and p_SGP of the owned, starting players
+    # Get the sum of SGP and p_SGP of the owned, starting players
     sgp_sum = udf['SGP'][:N_teams * N_activehitters].sum()
     p_sgp_sum = udf['p_SGP'][:N_teams * N_activehitters].sum()
-    #Get the difference from what it should be
+    # Get the difference from what it should be
     sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)#/(N_teams*N_activehitters)  #8 hitting cats
     p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)#/(N_teams*N_activehitters)
     print('sgp diff (should be near zero):')
     print(sgp_diff)
     print('p_sgp diff (should be near zero):')
     print(p_sgp_diff)
-    #Now loop over all this data and subtract this value off of all players SGP and p_SGP and save in rows???
+    # Calculate expected salaries
     udf['xusal'] = udf['SGP'] / sgp_sum * budget * frac_hitter_budget * N_teams
     udf['xsal'] = udf['p_SGP'] / p_sgp_sum * budget * frac_hitter_budget * N_teams
     udf['dsal'] = udf['Salary'] - udf['xsal']
