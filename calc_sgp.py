@@ -10,15 +10,6 @@ budget = 260
 frac_hitter_budget = 0.5
 output_dir = "./output/dc_3_19_2017/"
 
-pos_dict = {'C': 2, '1B': 3, '2B': 4, '3B': 5, 'SS': 6, 'LF': 7, 'CF': 8,
-          'RF': 9, 'U': 1}
-
-#Define a function to take the mean and std of a column of the data
-def mean_and_std(fooy, colind):
-    data = [entry[colind] for entry in fooy]
-    mm = np.mean(data)
-    ss = np.std(data)
-    return mm,ss
 
 def sgp_hitters(df, asgp):
     # This script calculates the sgp points hitters get in each category
@@ -27,8 +18,7 @@ def sgp_hitters(df, asgp):
     #Load our projections file and populate entries in two new lists
     # df = pd.read_csv('./tmp/hits2.csv')
     # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
-    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
-    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
+    sgp = load_sgp_thresh_last_year()
     # Sort the data
     df = df.sort_values(by='wOBA', ascending=False)
     # Keep only the top players for calculating averages for rate categories
@@ -52,11 +42,11 @@ def sgp_hitters(df, asgp):
     for cat in ['HR', 'R', 'RBI', 'SB', 'TB']:
         df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - asgp['s' + cat][0]
     #Sum up all of these entries to get the total SGP
-    df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
+    df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR',
+                    'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
     #Now sort by total SGP descending
     df = df.sort_values(by='SGP', ascending=False)
     df = df.reset_index(drop=True)
-    # df.to_csv(output_filename, index=False)
     return df
 
 
@@ -76,12 +66,15 @@ def addpos(df):
     return meta
 
 def calc_pos_scarcity(sgp_addends, meta):
+    """Calculate the position offset values.
+    Go through all hitters in order of SGP and assign them positions. It doesn't
+    actually matter what list a player is assigned to. The point is to get
+    replacement values"""
+
     #Initiailize each list by putting in the best hitter (will remove later)
     meta_ranked = dict()
     for m in meta:
         meta_ranked[m] = meta[m].head(1)
-    #Now go through the list in order of players in p0 (Uall) and assign them positions based on the best rank they would be at at each position. Break ties with the defensive spectrum
-    #Note that it doesn't actually matter who is in each list. The point is to get replacement values
     for _, row in meta['U'].iterrows():
         #Get the sgp of the player in this row
         sgp = row['SGP']
@@ -110,10 +103,7 @@ def calc_pos_scarcity(sgp_addends, meta):
     for m in meta_ranked:
         meta_ranked[m] = meta_ranked[m].drop(0)
         meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
-    # Get the SGP replacement level headers from the matlab script
-    #(Get_SGP_thresholds_from_lastyeardata.m)
-    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
-    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv', names=header)
+    sgp = load_sgp_thresh_last_year()
     #also need to account for the bench hitters. assume every team carries 3.
     # then 42 extra hitters. more than 4 teams worth
     stardiff = []
@@ -177,7 +167,7 @@ def add_pos_sgp(udf, sgp_pos_addends):
     #First make the output directory if it doesn't exist
     call(["mkdir", "-p", output_dir])
     #Load the files into lists
-    #Sort the list
+    #Sort the dictionary (returns a list of tuples)
     sgp_pos_add_sort = sorted(sgp_pos_addends.items(),
                               key=lambda sgp_pos_addends: sgp_pos_addends[1],
                               reverse=True) # should go largest to smallest
@@ -230,6 +220,14 @@ def add_pos_sgp(udf, sgp_pos_addends):
     for key, _ in meta.items():
         meta[key].to_csv(output_dir + key + '.csv', index=False)
     return udf
+
+def load_sgp_thresh_last_year():
+    """Get the SGP replacement level headers from the matlab script
+    (Get_SGP_thresholds_from_lastyeardata.m)"""
+    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
+    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv',
+                      names=header)
+    return sgp
 
 
 def assign_positions_to_dataframes(df):
