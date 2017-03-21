@@ -5,7 +5,6 @@ masterid_file = './source_data/ids.csv'
 
 
 def add_hitters():
-    hitter_projection_file = './source_data/proj_dc_hitters.csv'
     # Load hitter projection file and write new columns
     hitter_projection_file = './source_data/proj_dc_hitters.csv'
     df = pd.read_csv(hitter_projection_file)
@@ -25,7 +24,6 @@ def add_hitters():
         sort_values('WAR')[::-1][:10])
     # Remove rows that are null in fangraph ids
     out = out[out['cbs_id'].notnull()]
-    out.to_csv('tmp/hits2.csv', index=False)
     return out
 
 
