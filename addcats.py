@@ -54,40 +54,21 @@ def print_missing_and_remove_nulls(out):
     out = out[out['cbs_id'].notnull()]
     return out
 
-def separate_SP_RP():
-    ofSP=open('./tmp/pos/aSP.csv', "w")
-    ofRP=open('./tmp/pos/aRP.csv', "w")
-    ofSPRP=open('./tmp/pos/aSPRP.csv', "w")
-    ofNG=open('./tmp/NotPitchingin2017.csv', "w")
-    wSP=csv.writer(ofSP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    wRP=csv.writer(ofRP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    wSPRP=csv.writer(ofSPRP, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    wNG=csv.writer(ofNG, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    with open('./tmp/pitch2.csv') as f:
-        f_csv=csv.reader(f, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-        pitch=[entry for entry in f_csv ]
-    header=pitch.pop(0)
-    indGNS=header.index("GNS")
-    indGS=header.index("GS")
-    SP=[]
-    RP=[]
-    SPRP=[]
-    wSP.writerow(header)
-    wRP.writerow(header)
-    wSPRP.writerow(header)
-    wNG.writerow(header)
-    for row in pitch:
-        if row[indGS]>0 and row[indGNS]==0:
-            SP.append(row)
-            wSP.writerow(row)
-        elif row[indGS]==0 and row[indGNS]>0:
-            RP.append(row)
-            wRP.writerow(row)
-        elif row[indGS]==0 and row[indGNS]==0:
-            wNG.writerow(row)
+def separate_SP_RP(df):
+    SP = pd.DataFrame(columns=df.columns)
+    RP = pd.DataFrame(columns=df.columns)
+    SPRP = pd.DataFrame(columns=df.columns)
+    print('The following pitchers are not projected to pitch in 2017:')
+    for _, row in df.iterrows():
+        if (row['GS'] > 0) and (row['GNS'] == 0):
+            SP = SP.append(row, ignore_index='True')
+        elif (row['GS'] == 0) and (row['GNS'] > 0):
+            RP = RP.append(row, ignore_index='True')
+        elif (row['GS'] == 0) and (row['GNS']== 0):
+            print(row)
         else:
-            SPRP.append(row)
-            wSPRP.writerow(row)
+            SPRP = SPRP.append(row, ignore_index='True')
+    return SP, RP, SPRP
 
 # NOTE that holds are already included in the depth chart projections this year!
 # def add_holds():
