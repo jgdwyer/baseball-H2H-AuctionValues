@@ -5,8 +5,9 @@ import parse
 from subprocess import call #for calling mkdir
 
 def do_hitters():
+    parse.parse_csv('cbs_hitters.html')
     df = addcats.add_hitters()
-    df = calc_sgp.addcbs_info(df, 'hitters')
+    df = addcats.addcbs_info(df, 'hitters')
     # sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
     sgp_addends = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,
                                      'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
@@ -23,7 +24,7 @@ def do_hitters():
 
 def do_pitchers():
     df = addcats.add_pitchers()
-    df = calc_sgp.addcbs_info(df, 'pitchers')
+    df = addcats.addcbs_info(df, 'pitchers')
     SP, RP, SPRP = addcats.separate_SP_RP(df)
     sgp_addends = pd.DataFrame(data={'sERA': 0, 'sWHIP': 0, 'sIP/GS': 0, 'sSO/BB': 0,
                                      'sSO': 0, 'sW': 0, 'sSV': 0, 'sHLD': 0}, index=[0])

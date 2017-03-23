@@ -46,6 +46,19 @@ def add_cbs_id(df):
                  right_on='fg_id', how='left')
     return out
 
+def addcbs_info(df, players):
+    """This function writes the eligible cbssports positions to the projections file"""
+    #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
+    #Load csv data of player cbsid, player name, and mlb team
+    cbs = pd.read_csv('./source_data/cbs_' + players + '.csv',
+                    names=['cbs_id', 'mlb_team','jabo_team', 'Pos', 'Salary'],
+                    dtype={'cbs_id':str})
+    out = df.merge(cbs, left_on='cbs_id', right_on='cbs_id', how='inner')
+    print('Some data in the cbs players file is NA -- removing it:')
+    print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'WAR']])
+    out = out[out['Pos'].notnull()]
+    return out
+
 def print_missing_and_remove_nulls(out):
     # Show the best missing hitters that our id file doesn't have
     print("Best players without id's. Manually add these guys in:")
