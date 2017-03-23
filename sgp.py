@@ -114,7 +114,9 @@ def calcPositionOffsets(cat_offsets, df):
     # Get the positional difference by looking at the value of the last player
     pos_offsets = dict()
     for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']:
+        # TODO: These don't seem to be normalized correctly
         pos_offsets[pos] = meta_ranked[pos]['SGP'][N_teams-1]
+        # pos_offsets[pos] = meta_ranked[pos]['SGP'][:(N_teams-1)].mean()
     return cat_offsets, pos_offsets, star_thresh
 
 
