@@ -10,7 +10,6 @@ N_RP = 4
 budget = 260
 frac_hitter_budget = 0.5
 frac_pitcher_budget = 1 - frac_hitter_budget
-output_dir = "./output/dc_3_19_2017/"
 
 
 def calcSGPHitters(df, cat_offsets):
@@ -331,9 +330,9 @@ def reorder_cols(P):
              "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
     # Get an estimate for the expected salary
     N_topP = N_teams * (N_SP + N_RP) + 1
-    # The following value should be close to zero!
-    sgp_sum = P['SGP'][:N_topP].sum() - N_teams*(N_teams - 1)/2*8
-    print(sgp_sum)
+    sgp_sum = P['SGP'][:N_topP].sum()
+    sgp_sum_diff = sgp_sum - N_teams*(N_teams - 1)/2*8
+    print('The total SGP should be close to 0: {:.1f}'.format(sgp_sum_diff))
     # Calculate expected salary
     P['xsal'] = P['SGP'] / sgp_sum * budget * frac_pitcher_budget * N_teams
     P['dsal'] = P['Salary'] - P['xsal']
