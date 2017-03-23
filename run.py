@@ -1,4 +1,4 @@
-import calc_sgp
+import sgp
 import prep
 import pandas as pd
 from subprocess import call #for calling mkdir
@@ -10,8 +10,8 @@ def do_hitters():
                                      'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
     for i in range(5):
         print('Loop {:d}'.format(i))
-        df = calc_sgp.calcSGPHitters(df, cat_offsets)
-        cat_offsets, pos_offsets, star_thresh = calc_sgp.calcPositionOffsets(cat_offsets, df)
+        df = sgp.calcSGPHitters(df, cat_offsets)
+        cat_offsets, pos_offsets, star_thresh = sgp.calcPositionOffsets(cat_offsets, df)
     print('Thresholds for each category. Should be small:{}'.format(star_thresh))
     print('Offsets in each category:{}'.format(cat_offsets))
     print('Offsets at each position:{}'.format(pos_offsets))
@@ -21,14 +21,14 @@ def do_hitters():
 
 def do_pitchers():
     df = prep.run('pitchers')
-    SP, RP, SPRP = addcats.separate_SP_RP(df)
+    SP, RP, SPRP = prep.separate_SP_RP(df)
     sgp_addends = pd.DataFrame(data={'sERA': 0, 'sWHIP': 0, 'sIP/GS': 0, 'sSO/BB': 0,
                                      'sSO': 0, 'sW': 0, 'sSV': 0, 'sHLD': 0}, index=[0])
     for i in range(10):
-        SP, RP, P = calc_sgp.calc_sgp_SPRP(sgp_addends, SP, RP, SPRP)
-        sgp_addends, sgp_thresh = calc_sgp.normalize_SPRP(sgp_addends, SP, RP)
+        SP, RP, P = sgp.calc_sgp_SPRP(sgp_addends, SP, RP, SPRP)
+        sgp_addends, sgp_thresh = sgp.normalize_SPRP(sgp_addends, SP, RP)
         print(sgp_thresh)
-    P, SP, RP = calc_sgp.reorder_cols(P)# scorep.reorder_cols()
+    P, SP, RP = sgp.reorder_cols(P)# scorep.reorder_cols()
     return P, SP, RP
 
 def write_to_file():
