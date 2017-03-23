@@ -13,7 +13,7 @@ frac_pitcher_budget = 1 - frac_hitter_budget
 output_dir = "./output/dc_3_19_2017/"
 
 
-def calcSGPHitters(df, asgp):
+def calcSGPHitters(df, cat_offsets):
     """Calculates SGP values for hitters"""
     # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
     sgp = load_sgp_thresh_last_year('H')
@@ -36,9 +36,9 @@ def calcSGPHitters(df, asgp):
     df['wSLG'] = numer/denom - top_hitters['SLG'].mean()
     #Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['AVG', 'OBP', 'SLG']:
-        df['s' + cat] = df['w' + cat] / sgp[cat][0] - asgp['s' + cat][0]
+        df['s' + cat] = df['w' + cat] / sgp[cat][0] - cat_offsets['s' + cat][0]
     for cat in ['HR', 'R', 'RBI', 'SB', 'TB']:
-        df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - asgp['s' + cat][0]
+        df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - cat_offsets['s' + cat][0]
     #Sum up all of these entries to get the total SGP
     df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR',
                     'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
@@ -48,12 +48,11 @@ def calcSGPHitters(df, asgp):
     return df
 
 
-def calcPositionOffsets(sgp_addends, df):
+def calcPositionOffsets(cat_offsets, df):
     """Calculate the position offset values.
     Go through all hitters in order of SGP and assign them positions. It doesn't
     actually matter what list a player is assigned to. The point is to get
     replacement values"""
-
     #Initiailize each list by putting in the best hitter (will remove later)
     meta_ranked = dict()
     for m in ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C']:
@@ -89,8 +88,7 @@ def calcPositionOffsets(sgp_addends, df):
     sgp = load_sgp_thresh_last_year('H')
     #also need to account for the bench hitters. assume every team carries 3.
     # then 42 extra hitters. more than 4 teams worth
-    stardiff = []
-    starthresh = dict()
+    star_thresh = dict()
     #We need to normalize SGP so that the total available SGP of all hitters is
     # the number of points that can be gained (i.e., for each category, there are
     # 14 teams, so there are 13 points to be gained in each for each)
@@ -98,34 +96,26 @@ def calcPositionOffsets(sgp_addends, df):
     for sgpcat in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']:
         #loop over hitting categories
         star = 0
-        for i in range(0, N_teams): #Loop over #teams+4
-            for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: # NO UONLY
-                #Load the sum of SGP for each category for the top N_teams+4
-                #players at each position since this will represent the total
-                # number of owned hitters
-                star += meta_ranked[pos][sgpcat][i]
+        for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: # NO UONLY
+            #Load the sum of SGP for each category at each position
+            star += meta_ranked[pos][sgpcat][:N_teams].sum()
         #We're aiming to minimize this total in order that the sum of points of
         # all the owned players represents the correct
         #Use sum(i=1:N,i)=(N+1)N/2
         #Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
         #total number of sgp that can be gained by all teams..each category should have the same # ofthese
         #N_teams not N_teams+4
-        starthresh[sgpcat] = star - N_teams*(N_teams-1)/2
+        star_thresh[sgpcat] = star - N_teams*(N_teams-1)/2
         #N_teams-1    #N_teams*(N_teams-1)/2
         #This is the offset threshold that gets added on so that the total number of category points are right
         #This gets added in to the old values
         #Divide the difference by the total number of active players since all  will be contributing to the category
-        sgp_new[sgpcat] = sgp_addends[sgpcat] + \
-                          starthresh[sgpcat]/((N_teams)*N_activehitters)
-    #Print the offsets to each SGP category
-    print('Thresholds for each category. These values should be small:')
-    print(starthresh)
-    #Now print the rows in each file
-    cnt=0
-    sgp_pos_addends = dict()
-    for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: #defensive_spectrum:
-        sgp_pos_addends[pos] = meta_ranked[pos]['SGP'][N_teams-1]
-    return sgp_new, sgp_pos_addends
+        cat_offsets[sgpcat] += star_thresh[sgpcat]/((N_teams)*N_activehitters)
+    # Get the positional difference by looking at the value of the last player
+    pos_offsets = dict()
+    for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']:
+        pos_offsets[pos] = meta_ranked[pos]['SGP'][N_teams-1]
+    return cat_offsets, pos_offsets, star_thresh
 
 
 def get_rank(listo,sgp):
@@ -146,14 +136,13 @@ def get_rank(listo,sgp):
     return index
 
 
-def add_pos_sgp(udf, sgp_pos_addends):
+def addPositions(udf, pos_offsets):
     #Load the files into lists
     #Sort the dictionary (returns a list of tuples)
-    sgp_pos_add_sort = sorted(sgp_pos_addends.items(),
-                              key=lambda sgp_pos_addends: sgp_pos_addends[1],
+    sgp_pos_add_sort = sorted(pos_offsets.items(),
+                              key=lambda pos_offsets: pos_offsets[1],
                               reverse=True) # should go largest to smallest
                               # largest corresponds to best offensive poistion
-    print(sgp_pos_add_sort)
     # IGNORE FIRST VALUE???
     # Initialize
     sgp_addend = [0] * len(udf)
@@ -163,7 +152,6 @@ def add_pos_sgp(udf, sgp_pos_addends):
         for pp in sgp_pos_add_sort:
             if pp[0] in row['Pos'].split(','):
                 sgp_addend[cntrr] = pp[1]
-    print(sgp_addend)
     # Create position assigned row
     udf['p_SGP'] = udf['SGP'] - sgp_addend
     # Sort dataframe by descending p_SGP
@@ -175,10 +163,8 @@ def add_pos_sgp(udf, sgp_pos_addends):
     # Get the difference from what it should be
     sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)#/(N_teams*N_activehitters)  #8 hitting cats
     p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)#/(N_teams*N_activehitters)
-    print('sgp diff (should be near zero):')
-    print(sgp_diff)
-    print('p_sgp diff (should be near zero):')
-    print(p_sgp_diff)
+    print('sgp diff (should be near zero):{:.1f}'.format(sgp_diff))
+    print('p_sgp diff (should be near zero):{:.1f}'.format(p_sgp_diff))
     # Calculate expected salaries
     udf['xusal'] = udf['SGP'] / sgp_sum * budget * frac_hitter_budget * N_teams
     udf['xsal'] = udf['p_SGP'] / p_sgp_sum * budget * frac_hitter_budget * N_teams

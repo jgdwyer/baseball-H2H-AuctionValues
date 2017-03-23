@@ -6,16 +6,16 @@ from subprocess import call #for calling mkdir
 def do_hitters():
     df = prep.run('hitters')
     # sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
-    sgp_addends = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,
+    cat_offsets = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,
                                      'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
-
     for i in range(5):
-        df = calc_sgp.calcSGPHitters(df, sgp_addends)
-        sgp_addends, sgp_pos_addends = calc_sgp.calcPositionOffsets(sgp_addends, df)
         print('Loop {:d}'.format(i))
-        print(sgp_addends)
-        print(sgp_pos_addends)
-    U, meta = calc_sgp.add_pos_sgp(df, sgp_pos_addends)
+        df = calc_sgp.calcSGPHitters(df, cat_offsets)
+        cat_offsets, pos_offsets, star_thresh = calc_sgp.calcPositionOffsets(cat_offsets, df)
+    print('Thresholds for each category. Should be small:{}'.format(star_thresh))
+    print('Offsets in each category:{}'.format(cat_offsets))
+    print('Offsets at each position:{}'.format(pos_offsets))
+    U, meta = calc_sgp.addPositions(df, pos_offsets)
     return U, meta
 
 
