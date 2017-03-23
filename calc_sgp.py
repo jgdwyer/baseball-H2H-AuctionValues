@@ -15,11 +15,7 @@ output_dir = "./output/dc_3_19_2017/"
 
 
 def sgp_hitters(df, asgp):
-    # This script calculates the sgp points hitters get in each category
-    # The name of our output file
-    output_filename = 'tmp/hitssgp.csv'
-    #Load our projections file and populate entries in two new lists
-    # df = pd.read_csv('./tmp/hits2.csv')
+    """Calculates SGP values for hitters"""
     # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
     sgp = load_sgp_thresh_last_year('H')
     # Sort the data
@@ -367,9 +363,6 @@ def normalize_SPRP(asgp, SP, RP):
 def reorder_cols(P):
     #First make the output directory if it doesn't exist
     call(["mkdir", "-p", output_dir])
-    # Name	SGP	IP	FIP	K/9	BB/9	sERA	sWHIP	sIP/GS	sSO/BB	sSO	sW	sS
-    # ERA	WHIP	IP/GS	SO/BB	SO	L	W	SV	GS	G	H	ER	HR	BB
-    # WAR	RA9-WAR	playerid	salary	mlb team	jabo team	xsalary	Holds	sHD
     #Write the output header file
     column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
              "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
@@ -391,10 +384,3 @@ def reorder_cols(P):
     SP = P[P['GS']>0].reset_index(drop=True)
     RP = P[P['GS']==0].reset_index(drop=True)
     return P, SP, RP
-        # #sgp, IP,era,fip,k/9,bb/9, sgp cats, scoring cats
-        # #Write to file
-        # writer.writerow(row2)
-        # if row[header.index("GS")]==0:
-        #     writerrp.writerow(row2)
-        # else:
-        #     writersp.writerow(row2)
