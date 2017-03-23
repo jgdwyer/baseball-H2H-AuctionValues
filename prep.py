@@ -4,7 +4,7 @@ import numpy as np
 from os.path import join
 import re
 
-def prepPlayers(players):
+def run(players):
     parse_csv('cbs_' + players + '.html')
     df = load_fangraphs(players)
     df = add_cats(df, players)
