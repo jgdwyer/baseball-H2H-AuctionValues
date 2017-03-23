@@ -57,7 +57,7 @@ def addcbs_info(df, players):
     """This function writes the eligible cbssports positions to the projections file"""
     #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
     #Load csv data of player cbsid, player name, and mlb team
-    cbs = pd.read_csv('./tmp/cbs_' + players + '.csv',
+    cbs = pd.read_csv('./source_data/cbs_' + players + '.csv',
                     names=['cbs_id', 'mlb_team','jabo_team', 'Pos', 'Salary'],
                     dtype={'cbs_id':str})
     out = df.merge(cbs, left_on='cbs_id', right_on='cbs_id', how='inner')

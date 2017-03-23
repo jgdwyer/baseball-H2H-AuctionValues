@@ -1,6 +1,7 @@
 import calc_sgp
 import addcats
 import pandas as pd
+import parse
 
 def do_hitters():
     df = addcats.add_hitters()
@@ -33,9 +34,12 @@ def do_pitchers():
     return P, SP, RP
 
 def write_to_file():
+    # Parse files
+    parse.parse_csv('cbs_hitters.html')
+    parse.parse_csv('cbs_pitchers.html')
     U, meta = do_hitters()
     P, SP, RP = do_pitchers()
-    writer = pd.ExcelWriter('jabo_3-21.xlsx', engine='xlsxwriter')
+    writer = pd.ExcelWriter('jabo_3-22.xlsx', engine='xlsxwriter')
     U.to_excel(writer, sheet_name='U')
     SP.to_excel(writer, sheet_name='SP')
     RP.to_excel(writer, sheet_name='RP')

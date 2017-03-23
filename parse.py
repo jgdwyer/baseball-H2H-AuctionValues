@@ -8,7 +8,7 @@ def parse_csv(html_filename):
     in: html_filename [str] -- the filename of the html
                                (e.g. 'cbs_hitters.html')"""
     csv_file = html_filename[:-5] + '.csv'
-    outfile=open('./tmp/' + csv_file, 'w')
+    outfile=open('./source_data/' + csv_file, 'w')
     writer = csv.writer(outfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
     with open('./source_data/' + html_filename) as infile:
         for line in infile:
