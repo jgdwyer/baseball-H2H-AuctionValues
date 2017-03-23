@@ -6,7 +6,7 @@ from subprocess import call #for calling mkdir
 
 def do_hitters():
     parse.parse_csv('cbs_hitters.html')
-    df = addcats.add_hitters()
+    df = addcats.prepHitters()
     df = addcats.addcbs_info(df, 'hitters')
     # sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
     sgp_addends = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,

@@ -4,20 +4,29 @@ import numpy as np
 
 masterid_file = './source_data/ids.csv'
 
+def load_hitters_fangraphs():
+    return pd.read_csv('./source_data/proj_dc_hitters.csv')
 
-def add_hitters():
-    # Load hitter projection file and write new columns
-    df = pd.read_csv('./source_data/proj_dc_hitters.csv')
+def add_hitter_cats(df):
     df['1B'] = df['H'] - (df['2B'] + df['3B'] + df['HR'])
     df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
-    # Load the id's
-    out = add_cbs_id(df)
-    #Manually add cbs ids for certain players
-    out.loc[out.playerid=='3711', 'cbs_id'] ='1741019'
-    out.loc[out.playerid=='sa737507', 'cbs_id'] = '2066300'
-    # Show the best missing hitters that our id file doesn't have
-    out = print_missing_and_remove_nulls(out)
-    return out
+    return df
+
+def add_hitter_ids_manually(df):
+    fg_to_cbs = dict()
+    fg_to_cbs['3711'] = '1741019'
+    fg_to_cbs['sa737507'] = '2066300'
+    for fgid, cbsid in fg_to_cbs.items():
+        df.loc[df.playerid==fgid, 'cbs_id'] = cbsid
+    return df
+
+def prepHitters():
+    df = load_hitters_fangraphs()
+    df = add_hitter_cats(df)
+    df = add_cbs_id(df)
+    df = add_hitter_ids_manually(df)
+    df = print_missing_and_remove_nulls(df)
+    return df
 
 def add_pitchers():
     df = pd.read_csv('./source_data/proj_dc_pitchers.csv')
