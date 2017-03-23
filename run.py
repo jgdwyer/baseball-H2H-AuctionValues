@@ -2,16 +2,17 @@ import calc_sgp
 import addcats
 import pandas as pd
 import parse
+from subprocess import call #for calling mkdir
 
 def do_hitters():
     df = addcats.add_hitters()
+    df = calc_sgp.addcbs_info(df, 'hitters')
     # sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
     sgp_addends = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,
                                      'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
 
     for i in range(5):
         df = calc_sgp.sgp_hitters(df, sgp_addends)
-        meta = calc_sgp.addcbs_info(df, 'hitters')
         sgp_addends, sgp_pos_addends, meta_ranked = calc_sgp.calc_pos_scarcity(sgp_addends, meta)
         print('Loop {:d}'.format(i))
         print(sgp_addends)
@@ -34,6 +35,7 @@ def do_pitchers():
     return P, SP, RP
 
 def write_to_file():
+    call(["mkdir", "-p", output_dir])
     # Parse files
     parse.parse_csv('cbs_hitters.html')
     parse.parse_csv('cbs_pitchers.html')

@@ -1,7 +1,6 @@
 import csv
 import numpy as np
 import bisect
-from subprocess import call #for calling mkdir
 import pandas as pd
 
 N_teams = 14
@@ -60,12 +59,7 @@ def addcbs_info(df, players):
     print('Some data in the cbs players file is NA -- removing it:')
     print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'WAR']])
     out = out[out['Pos'].notnull()]
-    # Create a dict of data frames
-    if players == 'hitters':
-        meta = assign_positions_to_dataframes(out)
-    else:
-        meta = out
-    return meta
+    return out
 
 def calc_pos_scarcity(sgp_addends, meta):
     """Calculate the position offset values.
@@ -166,8 +160,6 @@ def get_rank(listo,sgp):
 
 
 def add_pos_sgp(udf, sgp_pos_addends):
-    #First make the output directory if it doesn't exist
-    call(["mkdir", "-p", output_dir])
     #Load the files into lists
     #Sort the dictionary (returns a list of tuples)
     sgp_pos_add_sort = sorted(sgp_pos_addends.items(),
@@ -361,8 +353,6 @@ def normalize_SPRP(asgp, SP, RP):
 
 
 def reorder_cols(P):
-    #First make the output directory if it doesn't exist
-    call(["mkdir", "-p", output_dir])
     #Write the output header file
     column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
              "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
