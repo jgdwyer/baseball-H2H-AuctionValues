@@ -1,6 +1,5 @@
 import calc_sgp
 import addcats
-import calc_sgp_P as scorep
 import pandas as pd
 
 def do_hitters():
@@ -21,9 +20,12 @@ def do_hitters():
 
 
 def do_pitchers():
-    sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
+    df = addcats.add_pitchers()
+    SP, RP, SPRP = addcats.separate_SP_RP(df)
+    sgp_addends = pd.DataFrame(data={'sERA': 0, 'sWHIP': 0, 'sIP/GS': 0, 'sSO/BB': 0,
+                                     'sSO': 0, 'sW': 0, 'sSV': 0, 'sHLD': 0}, index=[0])
     for i in range(10):
-        scorep.calc_sgp_SPRP(sgp_addends)
-        sgp_addends, sgp_thresh = scorep.normalize_SPRP(sgp_addends)
+        SP, RP = calc_sgp.calc_sgp_SPRP(sgp_addends, SP, RP, SPRP)
+        sgp_addends, sgp_thresh = calc_sgp.normalize_SPRP(sgp_addends, SP, RP)
         print(sgp_thresh)
-    scorep.reorder_cols()
+    # scorep.reorder_cols()
