@@ -6,8 +6,11 @@ import pandas as pd
 
 N_teams = 14
 N_activehitters = 9
+N_SP = 8
+N_RP = 4
 budget = 260
 frac_hitter_budget = 0.5
+frac_pitcher_budget = 1 - frac_hitter_budget
 output_dir = "./output/dc_3_19_2017/"
 
 
@@ -18,7 +21,7 @@ def sgp_hitters(df, asgp):
     #Load our projections file and populate entries in two new lists
     # df = pd.read_csv('./tmp/hits2.csv')
     # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
-    sgp = load_sgp_thresh_last_year()
+    sgp = load_sgp_thresh_last_year('H')
     # Sort the data
     df = df.sort_values(by='wOBA', ascending=False)
     # Keep only the top players for calculating averages for rate categories
@@ -103,7 +106,7 @@ def calc_pos_scarcity(sgp_addends, meta):
     for m in meta_ranked:
         meta_ranked[m] = meta_ranked[m].drop(0)
         meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
-    sgp = load_sgp_thresh_last_year()
+    sgp = load_sgp_thresh_last_year('H')
     #also need to account for the bench hitters. assume every team carries 3.
     # then 42 extra hitters. more than 4 teams worth
     stardiff = []
@@ -221,12 +224,19 @@ def add_pos_sgp(udf, sgp_pos_addends):
         meta[key].to_csv(output_dir + key + '.csv', index=False)
     return udf
 
-def load_sgp_thresh_last_year():
+def load_sgp_thresh_last_year(players):
     """Get the SGP replacement level headers from the matlab script
     (Get_SGP_thresholds_from_lastyeardata.m)"""
-    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header.csv')
-    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values.csv',
-                      names=header)
+    if players == 'H':
+        file_tail = ''
+    elif players == 'P':
+        file_tail = '_P'
+    else:
+        raise ValueError("Players should be 'H' or 'P' ")
+    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header' +
+                         file_tail + '.csv')
+    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values' +
+                         file_tail + '.csv', names=header)
     return sgp
 
 
@@ -251,3 +261,86 @@ def assign_positions_to_dataframes(df):
         if row['Pos'] == 'U':
             meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
     return meta
+
+
+def calc_sgp_SPRP(asgp, SP, RP, SPRP):
+    #Get the SGP replacement level values from the matlab script
+    #These are the headers
+    sgp = load_sgp_thresh_last_year('P')
+    #Sort the data for SP and keep the top pitchers for calculating rate cats
+    SP = SP.sort_values(by='WAR', ascending=False)
+    top_SP = SP.head(N_SP * N_teams)
+    #sort the relievers
+    RP = RP.sort_values(by='WAR', ascending=False)
+    top_RP = RP.head(N_RP * N_teams)
+    #Now combine the sp and rp
+    print(top_SP.shape)
+    print(top_RP.shape)
+    top_P = pd.concat([top_SP, top_RP], axis=0)
+    P = pd.concat([SP, RP], axis=0)
+    #Calculate "wERA"
+    numer_SP = (N_SP - 1) * top_SP['ER'].mean() + N_RP * top_RP['ER'].mean()
+    denom_SP = (N_SP - 1) * top_SP['IP'].mean() + N_RP * top_RP['IP'].mean()
+    numer_RP = N_SP * top_SP['ER'].mean() + (N_RP - 1) * top_RP['ER'].mean()
+    denom_RP = N_SP * top_SP['IP'].mean() + (N_RP - 1) * top_RP['IP'].mean()
+    mean_era = 9 * (top_SP['ER'].mean() + top_RP['ER'].mean()) / \
+                   (top_SP['IP'].mean() + top_RP['IP'].mean())
+    wera = []
+    for _, row in P.iterrows():
+        if row['GS']==0:
+            val = (numer_RP + row['ER']) / (denom_RP + row['IP'])
+        else:
+            val = (numer_SP + row['ER']) / (denom_SP + row['IP'])
+        wera.append(9 * val - mean_era)
+    P['wERA'] = wera
+    # Calculate "wWHIP"
+    numer_SP = (N_SP - 1) * top_SP['W+H'].mean() + N_RP * top_RP['W+H'].mean()
+    denom_SP = (N_SP - 1) * top_SP['IP'].mean() + N_RP * top_RP['IP'].mean()
+    numer_RP = N_SP * top_SP['W+H'].mean() + (N_RP - 1) * top_RP['W+H'].mean()
+    denom_RP = N_SP * top_SP['IP'].mean() + (N_RP - 1) * top_RP['IP'].mean()
+    mean_whip = (top_SP['W+H'].mean() + top_RP['W+H'].mean()) / \
+                (top_SP['IP'].mean() + top_RP['IP'].mean())
+    wwhip = []
+    for _, row in P.iterrows():
+        if row['GS']==0:
+            val = (numer_RP + row['W+H']) / (denom_RP + row['IP'])
+        else:
+            val = (numer_SP + row['W+H']) / (denom_SP + row['IP'])
+        wwhip.append(val - mean_whip)
+    P['wWHIP'] = wwhip
+    # Calculate "wIP/GS"
+    numer = (N_SP - 1) * top_SP['IP'].mean()
+    denom = (N_SP - 1) * top_SP['GS'].mean()
+    mean_ipgs = numer / denom
+    P['wIP/GS'] = (numer + P['IP']) / (denom + P['GS']) - mean_ipgs
+    P.loc[P['GNS']>0, 'wIP/GS'] = 0
+    # Calculate "wSO/BB"
+    numer_SP = (N_SP - 1) * top_SP['SO'].mean() + N_RP * top_RP['SO'].mean()
+    denom_SP = (N_SP - 1) * top_SP['BB'].mean() + N_RP * top_RP['BB'].mean()
+    numer_RP = N_SP * top_SP['SO'].mean() + (N_RP - 1) * top_RP['SO'].mean()
+    denom_RP = N_SP * top_SP['BB'].mean() + (N_RP - 1) * top_RP['BB'].mean()
+    mean_sobb = (top_SP['SO'].mean() + top_RP['SO'].mean()) / \
+                (top_SP['BB'].mean() + top_RP['BB'].mean())
+    wsobb = []
+    for _, row in P.iterrows():
+        if row['GS']==0:
+            val = (numer_RP + row['SO']) / (denom_RP + row['BB'])
+        else:
+            val = (numer_SP + row['SO']) / (denom_SP + row['BB'])
+        wsobb.append(val - mean_sobb)
+    P['wSO/BB'] = wsobb
+    #Now get the sgp by dividing by the values calculated from last year's totals
+    for cat in ['ERA', 'WHIP', 'IP/GS', 'SO/BB']:
+        P['s' + cat] = P['w' + cat] / sgp[cat][0] - asgp['s' + cat][0]
+    for cat in ['SO', 'W', 'SV', 'HLD']:
+        P['s' + cat] = (P[cat] - sgp[cat][1]) / sgp[cat][0] - asgp['s' + cat][0]
+    P.loc[P['GNS']>0, 'sIP/GS'] = 0
+    P.loc[P['GNS']==0, 'sSV'] = 0
+    P.loc[P['GNS']==0, 'sHLD'] = 0
+    #Sum up all of these entries to get the total SGP
+    P['SGP'] = P[['sERA', 'sWHIP', 'sIP/GS', 'sSO/BB',
+                    'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
+    #Now sort by total SGP descending
+    P = P.sort_values(by='SGP', ascending=False)
+    P = P.reset_index(drop=True)
+    return P
