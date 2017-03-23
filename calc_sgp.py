@@ -53,19 +53,22 @@ def sgp_hitters(df, asgp):
     return df
 
 
-def addpos(df):
+def addcbs_info(df, players):
     """This function writes the eligible cbssports positions to the projections file"""
     #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
     #Load csv data of player cbsid, player name, and mlb team
-    cbs = pd.read_csv('./tmp/cbs_hitters.csv',
+    cbs = pd.read_csv('./tmp/cbs_' + players + '.csv',
                     names=['cbs_id', 'mlb_team','jabo_team', 'Pos', 'Salary'],
                     dtype={'cbs_id':str})
     out = df.merge(cbs, left_on='cbs_id', right_on='cbs_id', how='inner')
     print('Some data in the cbs players file is NA -- removing it:')
-    print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'wOBA']])
+    print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'WAR']])
     out = out[out['Pos'].notnull()]
     # Create a dict of data frames
-    meta = assign_positions_to_dataframes(udf)
+    if players == 'hitters':
+        meta = assign_positions_to_dataframes(udf)
+    else:
+        meta = out
     return meta
 
 def calc_pos_scarcity(sgp_addends, meta):
@@ -342,9 +345,10 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
                     'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
     #Now sort by total SGP descending
     P = P.sort_values(by='SGP', ascending=False)
+    P = P.reset_index(drop=True)
     SP = P[P['GS']>0].reset_index(drop=True)
     RP = P[P['GS']==0].reset_index(drop=True)
-    return SP, RP
+    return SP, RP, P
 
 def normalize_SPRP(asgp, SP, RP):
     sgp_thresh = dict()
@@ -356,6 +360,41 @@ def normalize_SPRP(asgp, SP, RP):
         star = SP[cat][:N_topSP].sum() + RP[cat][:N_topRP].sum()
         staradd = star - N_teams*(N_teams - 1)/2
         sgp_thresh[cat] = staradd
-        # Should this be 9 or N_SP + N_RP??????
-        asgp[cat] += staradd / (N_teams * 9)
+        asgp[cat] += staradd / (N_teams * (N_SP + N_RP))
     return asgp, sgp_thresh
+
+
+def reorder_cols(P):
+    #First make the output directory if it doesn't exist
+    call(["mkdir", "-p", output_dir])
+    # Name	SGP	IP	FIP	K/9	BB/9	sERA	sWHIP	sIP/GS	sSO/BB	sSO	sW	sS
+    # ERA	WHIP	IP/GS	SO/BB	SO	L	W	SV	GS	G	H	ER	HR	BB
+    # WAR	RA9-WAR	playerid	salary	mlb team	jabo team	xsalary	Holds	sHD
+    #Write the output header file
+    column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
+             "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
+             "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid"]
+    # Get an estimate for the expected salary
+    N_topP = N_teams * (N_SP + N_RP) + 1
+    sgp_sum = P['SGP'][:N_topP].sum()
+    print(sgp_sum)
+    # Calculate expected salary
+    P['xsal'] = P['SGP'] / sgp_sum * budget * frac_pitcher_budget * N_teams
+    P['dsal'] = P['Salary'] - P['xsal']
+    # Round output columns
+    rounding_dict = {'SO/BB': 1, "IP/GS": 1, "sERA": 1, "sWHIP": 1, "sIP/GS": 1,
+                     "sSO/BB": 1, "sSO": 1, "sW": 1, "sSV": 1, 'sHLD': 1,
+                     'SGP': 1, 'xsal': 0, 'dsal': 0}
+    P = P.round(rounding_dict)
+    # Set column order
+    P = P[column_order]
+    SP = P[P['GS']>0].reset_index(drop=True)
+    RP = P[P['GS']==0].reset_index(drop=True)
+    return P, SP, RP
+        # #sgp, IP,era,fip,k/9,bb/9, sgp cats, scoring cats
+        # #Write to file
+        # writer.writerow(row2)
+        # if row[header.index("GS")]==0:
+        #     writerrp.writerow(row2)
+        # else:
+        #     writersp.writerow(row2)
