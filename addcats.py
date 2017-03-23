@@ -1,6 +1,8 @@
 import csv
 import pandas as pd
 import numpy as np
+from os.path import join
+import re
 
 masterid_file = './source_data/ids.csv'
 
@@ -21,6 +23,7 @@ def add_hitter_ids_manually(df):
     return df
 
 def prepHitters():
+    parse_csv('cbs_hitters.html')
     df = load_hitters_fangraphs()
     df = add_hitter_cats(df)
     df = add_cbs_id(df)
@@ -29,6 +32,7 @@ def prepHitters():
     return df
 
 def add_pitchers():
+    parse_csv('cbs_pitchers.html')
     df = pd.read_csv('./source_data/proj_dc_pitchers.csv')
     df['GNS'] = df['G'] - df['GS']  # Games not started
     df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
@@ -92,3 +96,52 @@ def separate_SP_RP(df):
         else:
             SPRP = SPRP.append(row, ignore_index='True')
     return SP, RP, SPRP
+
+
+def parse_csv(html_filename):
+    """Converts the cbs html files to csv. The whole thing should be rewritten
+        with beautiful soup rather than regular expressions.
+    in: html_filename [str] -- the filename of the html
+                               (e.g. 'cbs_hitters.html')"""
+    csv_file = html_filename[:-5] + '.csv'
+    outfile=open('./source_data/' + csv_file, 'w')
+    writer = csv.writer(outfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+    with open('./source_data/' + html_filename) as infile:
+        for line in infile:
+            # Extract the cbs player id
+            cbsid = re.findall(r'actionButtons_(.*?)"><',line)
+            cbsid = ''.join(cbsid)
+            # Extract the mlb team
+            mlb = re.findall(r' \| (.*?)<',line)
+            mlb = ''.join(mlb)
+            # Extract the jabo team
+            jabo = re.findall(r'tooltip[\'"] title=(.*?)>', line)
+            jabo = ''.join(jabo)
+            if "On Waivers" in jabo:
+                jabo = 'Free Agent'
+            else:
+                jabo = re.findall(r'Owned By (.*?)\'>', line)
+                jabo = ''.join(jabo)
+                jabo = jabo.split('"')[0]
+            # Extract the eligible positions
+            line = re.findall(r'"right">(.*?)<\/td><td align="right">9999', line)
+            line = ''.join(line)
+            if 'hitters' in html_filename:
+                pos = re.findall(r'^(.*?)<', line)
+            else:
+                pos = re.findall(r'^(.*?)<\/td', line)
+            pos = ''.join(pos)
+            # Extract the players' salaries
+            sal = re.findall(r'right\">(.*?)$', line)
+            sal = ''.join(sal)
+            if sal:
+                sal = int(sal)
+            # Store as list and write to a row in csv file
+            c=[]
+            if mlb:
+                c.append(cbsid)
+                c.append(mlb)
+                c.append(jabo)
+                c.append(pos)
+                c.append(sal)
+                writer.writerow(c)
