@@ -87,18 +87,15 @@ def print_missing_and_remove_nulls(out):
 def separate_SP_RP(df):
     SP = pd.DataFrame(columns=df.columns)
     RP = pd.DataFrame(columns=df.columns)
-    SPRP = pd.DataFrame(columns=df.columns)
     print('The following pitchers are not projected to pitch in 2017:')
     for _, row in df.iterrows():
         if (row['GS'] > 0) and (row['GNS'] == 0):
             SP = SP.append(row, ignore_index='True')
-        elif (row['GS'] == 0) and (row['GNS'] > 0):
+        elif (row['GNS'] > 0):
             RP = RP.append(row, ignore_index='True')
-        elif (row['GS'] == 0) and (row['GNS']== 0):
+        else: #GS=0, GNS=0
             print(row)
-        else:
-            SPRP = SPRP.append(row, ignore_index='True')
-    return SP, RP, SPRP
+    return SP, RP
 
 
 def parse_csv(html_filename):

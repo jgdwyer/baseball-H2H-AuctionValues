@@ -229,7 +229,7 @@ def assign_positions_to_dataframes(df):
     return meta
 
 
-def calc_sgp_SPRP(asgp, SP, RP, SPRP):
+def calcSGPPitchers(cat_offsets, SP, RP):
     #Get the SGP replacement level values from the matlab script
     #These are the headers
     sgp = load_sgp_thresh_last_year('P')
@@ -240,8 +240,6 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
     RP = RP.sort_values(by='WAR', ascending=False)
     top_RP = RP.head(N_RP * N_teams)
     #Now combine the sp and rp
-    print(top_SP.shape)
-    print(top_RP.shape)
     top_P = pd.concat([top_SP, top_RP], axis=0)
     P = pd.concat([SP, RP], axis=0)
     #Calculate "wERA"
@@ -297,9 +295,9 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
     P['wSO/BB'] = wsobb
     #Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['ERA', 'WHIP', 'IP/GS', 'SO/BB']:
-        P['s' + cat] = P['w' + cat] / sgp[cat][0] - asgp['s' + cat][0]
+        P['s' + cat] = P['w' + cat] / sgp[cat][0] - cat_offsets['s' + cat][0]
     for cat in ['SO', 'W', 'SV', 'HLD']:
-        P['s' + cat] = (P[cat] - sgp[cat][1]) / sgp[cat][0] - asgp['s' + cat][0]
+        P['s' + cat] = (P[cat] - sgp[cat][1]) / sgp[cat][0] - cat_offsets['s' + cat][0]
     P.loc[P['GNS']>0, 'sIP/GS'] = 0
     P.loc[P['GNS']==0, 'sSV'] = 0
     P.loc[P['GNS']==0, 'sHLD'] = 0
@@ -313,18 +311,17 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
     RP = P[P['GS']==0].reset_index(drop=True)
     return SP, RP, P
 
-def normalize_SPRP(asgp, SP, RP):
+def normSGPPitchers(cat_offsets, SP, RP):
     sgp_thresh = dict()
     #Loop over each category
-    N_topSP = N_teams * N_SP + 1
-    N_topRP = N_teams * N_RP + 1
+    N_topSP = N_teams * N_SP
+    N_topRP = N_teams * N_RP
     # for k in range(0, 8):
     for cat in ["sERA", "sWHIP", "sIP/GS", "sSO/BB", "sSO", "sW", "sHLD", "sSV"]:
         star = SP[cat][:N_topSP].sum() + RP[cat][:N_topRP].sum()
-        staradd = star - N_teams*(N_teams - 1)/2
-        sgp_thresh[cat] = staradd
-        asgp[cat] += staradd / (N_teams * (N_SP + N_RP))
-    return asgp, sgp_thresh
+        sgp_thresh[cat] = star - N_teams*(N_teams - 1)/2
+        cat_offsets[cat] += sgp_thresh[cat] / (N_teams * (N_SP + N_RP))
+    return cat_offsets, sgp_thresh
 
 
 def reorder_cols(P):
@@ -334,7 +331,8 @@ def reorder_cols(P):
              "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
     # Get an estimate for the expected salary
     N_topP = N_teams * (N_SP + N_RP) + 1
-    sgp_sum = P['SGP'][:N_topP].sum()
+    # The following value should be close to zero!
+    sgp_sum = P['SGP'][:N_topP].sum() - N_teams*(N_teams - 1)/2*8
     print(sgp_sum)
     # Calculate expected salary
     P['xsal'] = P['SGP'] / sgp_sum * budget * frac_pitcher_budget * N_teams
