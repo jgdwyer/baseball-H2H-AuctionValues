@@ -34,7 +34,7 @@ def do_pitchers():
 
 
 def write_to_file():
-    output_file = "./output/dc_3_23_2017/"
+    output_file = "./output/dc_3_23_2017.xlsx"
     # Parse files
     parse.parse_csv('cbs_hitters.html')
     parse.parse_csv('cbs_pitchers.html')
