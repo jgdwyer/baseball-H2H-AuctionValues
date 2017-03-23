@@ -343,4 +343,20 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
     #Now sort by total SGP descending
     P = P.sort_values(by='SGP', ascending=False)
     P = P.reset_index(drop=True)
-    return P
+    SP = P[P['GS']>0]
+    RP = P[P['GS']==0]
+    return SP, RP
+
+def normalize_SPRP(asgp, SP, RP):
+    sgp_thresh = dict()
+    #Loop over each category
+    N_topSP = N_teams * N_SP + 1
+    N_topRP = N_teams * N_RP + 1
+    # for k in range(0, 8):
+    for cat in ["sERA", "sWHIP", "sIP/GS", "sSO/BB", "sSO", "sW", "sHLD", "sSV"]:
+        star = SP[cat][:N_topSP].sum() + RP[cat][:N_topRP].sum()
+        staradd = star - N_teams*(N_teams - 1)/2
+        sgp_thresh[cat] = staradd
+        # Should this be 9 or N_SP + N_RP??????
+        asgp[cat] += staradd / (N_teams * 9)
+    return asgp, sgp_thresh
