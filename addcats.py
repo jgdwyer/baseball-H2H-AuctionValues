@@ -4,53 +4,57 @@ import numpy as np
 from os.path import join
 import re
 
-masterid_file = './source_data/ids.csv'
+def prepPlayers(players):
+    parse_csv('cbs_' + players + '.html')
+    df = load_fangraphs(players)
+    df = add_cats(df, players)
+    df = add_cbs_id(df)
+    df = add_ids_manually(df, players)
+    df = print_missing_and_remove_nulls(df)
+    df = addcbs_info(df, players)
+    return df
 
-def load_hitters_fangraphs():
-    return pd.read_csv('./source_data/proj_dc_hitters.csv')
+def load_fangraphs(players):
+    return pd.read_csv('./source_data/proj_dc_' + players + '.csv')
 
 def add_hitter_cats(df):
     df['1B'] = df['H'] - (df['2B'] + df['3B'] + df['HR'])
     df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
     return df
 
-def add_hitter_ids_manually(df):
+
+def add_ids_manually(df, players):
     fg_to_cbs = dict()
-    fg_to_cbs['3711'] = '1741019'
-    fg_to_cbs['sa737507'] = '2066300'
+    if players == 'hitters':
+        fg_to_cbs['3711'] = '1741019'
+        fg_to_cbs['sa737507'] = '2066300'
+    elif players == 'pitchers':
+        fg_to_cbs['sa658473'] = '2044482'
+        fg_to_cbs['sa621465'] = '2138864'
+        fg_to_cbs['sa597893'] = '2449977'
+    else:
+        raise ValueError('Incorrect player string')
     for fgid, cbsid in fg_to_cbs.items():
         df.loc[df.playerid==fgid, 'cbs_id'] = cbsid
     return df
 
-def prepHitters():
-    parse_csv('cbs_hitters.html')
-    df = load_hitters_fangraphs()
-    df = add_hitter_cats(df)
-    df = add_cbs_id(df)
-    df = add_hitter_ids_manually(df)
-    df = print_missing_and_remove_nulls(df)
+def add_cats(df, players):
+    if players == 'hitters':
+        df['1B'] = df['H'] - (df['2B'] + df['3B'] + df['HR'])
+        df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
+    elif players == 'pitchers':
+        df['GNS'] = df['G'] - df['GS']  # Games not started
+        df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
+        df['IP/GS'] = df['IP'].astype('float') / df['GS'].astype('float')
+        df.loc[df['GNS']>0, 'IP/GS'] = 0
+        # Handle division by zero case
+        df.replace([np.inf, -np.inf], np.nan, inplace=True)
+        df['SO/BB'].fillna(0, inplace=True)
+        df['IP/GS'].fillna(0, inplace=True)
+        df['W+H'] = df['BB'] + df['H']
+    else:
+        raise ValueError('Incorrect player string')
     return df
-
-def add_pitchers():
-    parse_csv('cbs_pitchers.html')
-    df = pd.read_csv('./source_data/proj_dc_pitchers.csv')
-    df['GNS'] = df['G'] - df['GS']  # Games not started
-    df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
-    df['IP/GS'] = df['IP'].astype('float') / df['GS'].astype('float')
-    df.loc[df['GNS']>0, 'IP/GS'] = 0
-    # Handle division by zero case
-    df.replace([np.inf, -np.inf], np.nan, inplace=True)
-    df['SO/BB'].fillna(0, inplace=True)
-    df['IP/GS'].fillna(0, inplace=True)
-    df['W+H'] = df['BB'] + df['H']
-    # Load the id's
-    out = add_cbs_id(df)
-    #Manually add cbs ids for certain players
-    out.loc[out.playerid=='sa658473', 'cbs_id'] ='2044482'
-    out.loc[out.playerid=='sa621465', 'cbs_id'] = '2138864'
-    out.loc[out.playerid=='sa597893', 'cbs_id'] = '2449977'
-    out = print_missing_and_remove_nulls(out)
-    return out
 
 def add_cbs_id(df):
     idkey = pd.read_csv('./source_data/ids.csv', dtype={'cbs_id': str})
