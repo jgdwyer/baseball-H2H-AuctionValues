@@ -61,7 +61,7 @@ def addcbs_info(df, players):
     out = out[out['Pos'].notnull()]
     return out
 
-def calc_pos_scarcity(sgp_addends, meta):
+def calc_pos_scarcity(sgp_addends, df):
     """Calculate the position offset values.
     Go through all hitters in order of SGP and assign them positions. It doesn't
     actually matter what list a player is assigned to. The point is to get
@@ -69,9 +69,9 @@ def calc_pos_scarcity(sgp_addends, meta):
 
     #Initiailize each list by putting in the best hitter (will remove later)
     meta_ranked = dict()
-    for m in meta:
-        meta_ranked[m] = meta[m].head(1)
-    for _, row in meta['U'].iterrows():
+    for m in ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C']:
+        meta_ranked[m] = df.head(1)
+    for _, row in df.iterrows():
         #Get the sgp of the player in this row
         sgp = row['SGP']
         #now get the rank of the available positions
@@ -138,7 +138,7 @@ def calc_pos_scarcity(sgp_addends, meta):
     sgp_pos_addends = dict()
     for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: #defensive_spectrum:
         sgp_pos_addends[pos] = meta_ranked[pos]['SGP'][N_teams-1]
-    return sgp_new, sgp_pos_addends, meta_ranked
+    return sgp_new, sgp_pos_addends
 
 
 def get_rank(listo,sgp):

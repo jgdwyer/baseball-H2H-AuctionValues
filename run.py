@@ -13,11 +13,11 @@ def do_hitters():
 
     for i in range(5):
         df = calc_sgp.sgp_hitters(df, sgp_addends)
-        sgp_addends, sgp_pos_addends, meta_ranked = calc_sgp.calc_pos_scarcity(sgp_addends, meta)
+        sgp_addends, sgp_pos_addends = calc_sgp.calc_pos_scarcity(sgp_addends, df)
         print('Loop {:d}'.format(i))
         print(sgp_addends)
         print(sgp_pos_addends)
-    U, meta = calc_sgp.add_pos_sgp(meta['U'], sgp_pos_addends)
+    U, meta = calc_sgp.add_pos_sgp(df, sgp_pos_addends)
     return U, meta
 
 
