@@ -342,9 +342,8 @@ def calc_sgp_SPRP(asgp, SP, RP, SPRP):
                     'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
     #Now sort by total SGP descending
     P = P.sort_values(by='SGP', ascending=False)
-    P = P.reset_index(drop=True)
-    SP = P[P['GS']>0]
-    RP = P[P['GS']==0]
+    SP = P[P['GS']>0].reset_index(drop=True)
+    RP = P[P['GS']==0].reset_index(drop=True)
     return SP, RP
 
 def normalize_SPRP(asgp, SP, RP):
