@@ -22,7 +22,6 @@ def add_hitter_cats(df):
     df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
     return df
 
-
 def add_ids_manually(df, players):
     fg_to_cbs = dict()
     if players == 'hitters':

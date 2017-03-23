@@ -10,8 +10,8 @@ def do_hitters():
                                      'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
 
     for i in range(5):
-        df = calc_sgp.sgp_hitters(df, sgp_addends)
-        sgp_addends, sgp_pos_addends = calc_sgp.calc_pos_scarcity(sgp_addends, df)
+        df = calc_sgp.calcSGPHitters(df, sgp_addends)
+        sgp_addends, sgp_pos_addends = calc_sgp.calcPositionOffsets(sgp_addends, df)
         print('Loop {:d}'.format(i))
         print(sgp_addends)
         print(sgp_pos_addends)

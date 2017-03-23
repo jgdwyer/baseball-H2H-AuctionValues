@@ -13,7 +13,7 @@ frac_pitcher_budget = 1 - frac_hitter_budget
 output_dir = "./output/dc_3_19_2017/"
 
 
-def sgp_hitters(df, asgp):
+def calcSGPHitters(df, asgp):
     """Calculates SGP values for hitters"""
     # Get the SGP replacement level headers from the matlab script (Get_SGP_thresholds_from_lastyeardata.m)
     sgp = load_sgp_thresh_last_year('H')
@@ -48,7 +48,7 @@ def sgp_hitters(df, asgp):
     return df
 
 
-def calc_pos_scarcity(sgp_addends, df):
+def calcPositionOffsets(sgp_addends, df):
     """Calculate the position offset values.
     Go through all hitters in order of SGP and assign them positions. It doesn't
     actually matter what list a player is assigned to. The point is to get
