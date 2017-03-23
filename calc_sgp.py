@@ -66,7 +66,7 @@ def addcbs_info(df, players):
     out = out[out['Pos'].notnull()]
     # Create a dict of data frames
     if players == 'hitters':
-        meta = assign_positions_to_dataframes(udf)
+        meta = assign_positions_to_dataframes(out)
     else:
         meta = out
     return meta
@@ -225,7 +225,7 @@ def add_pos_sgp(udf, sgp_pos_addends):
     # Write each to file
     for key, _ in meta.items():
         meta[key].to_csv(output_dir + key + '.csv', index=False)
-    return udf
+    return udf, meta
 
 def load_sgp_thresh_last_year(players):
     """Get the SGP replacement level headers from the matlab script
@@ -373,7 +373,7 @@ def reorder_cols(P):
     #Write the output header file
     column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
              "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
-             "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid"]
+             "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
     # Get an estimate for the expected salary
     N_topP = N_teams * (N_SP + N_RP) + 1
     sgp_sum = P['SGP'][:N_topP].sum()
