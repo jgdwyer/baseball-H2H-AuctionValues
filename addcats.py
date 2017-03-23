@@ -24,6 +24,7 @@ def add_pitchers():
     df['GNS'] = df['G'] - df['GS']  # Games not started
     df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
     df['IP/GS'] = df['IP'].astype('float') / df['GS'].astype('float')
+    df.loc[df['GNS']>0, 'IP/GS'] = 0
     # Handle division by zero case
     df.replace([np.inf, -np.inf], np.nan, inplace=True)
     df['SO/BB'].fillna(0, inplace=True)
