@@ -173,7 +173,7 @@ def addPositions(udf, pos_offsets):
     # Round the dataframe
     rounding_dict = {'wAVG': 3, 'wOBP': 3, 'wSLG': 3, "sAVG": 1, "sOBP": 1,
                      "sSLG": 1, "sHR": 1, "sR": 1, "sRBI": 1, "sSB": 1,
-                     "sTB": 1, 'SGP': 1, 'p_SGP': 1, 'xusal': 0, 'xpsal': 0,
+                     "sTB": 1, 'SGP': 1, 'p_SGP': 1, 'xusal': 0, 'xsal': 0,
                      'dsal':0}
     udf = udf.round(rounding_dict)
     # Reorder columns
