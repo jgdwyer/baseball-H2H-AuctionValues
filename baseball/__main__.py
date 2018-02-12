@@ -1,6 +1,8 @@
-import sgp
-import prep
 import pandas as pd
+import sgp
+
+from baseball import prep
+
 
 def do_hitters():
     df = prep.run('hitters')
@@ -47,3 +49,7 @@ def write_to_file():
     for key, _ in meta.items():
         meta[key].to_excel(writer, sheet_name=key)
     writer.save()
+
+if __name__ == "__main__":
+    do_hitters()
+    do_pitchers()
