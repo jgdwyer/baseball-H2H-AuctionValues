@@ -1,6 +1,3 @@
-import csv
-import numpy as np
-import bisect
 import pandas as pd
 
 N_teams = 14
@@ -33,15 +30,15 @@ def calcSGPHitters(df, cat_offsets):
     numer = (N_activehitters - 1) * top_hitters['TB'].mean() + df['TB']
     denom = (N_activehitters - 1) * top_hitters['AB'].mean() + df['AB']
     df['wSLG'] = numer/denom - top_hitters['SLG'].mean()
-    #Now get the sgp by dividing by the values calculated from last year's totals
+    # Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['AVG', 'OBP', 'SLG']:
         df['s' + cat] = df['w' + cat] / sgp[cat][0] - cat_offsets['s' + cat][0]
     for cat in ['HR', 'R', 'RBI', 'SB', 'TB']:
         df['s' + cat] = (df[cat] - sgp[cat][1]) / sgp[cat][0] - cat_offsets['s' + cat][0]
-    #Sum up all of these entries to get the total SGP
+    # Sum up all of these entries to get the total SGP
     df['SGP'] = df[['sAVG', 'sOBP', 'sSLG', 'sHR',
                     'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
-    #Now sort by total SGP descending
+    # Now sort by total SGP descending
     df = df.sort_values(by='SGP', ascending=False)
     df = df.reset_index(drop=True)
     return df
@@ -52,63 +49,63 @@ def calcPositionOffsets(cat_offsets, df):
     Go through all hitters in order of SGP and assign them positions. It doesn't
     actually matter what list a player is assigned to. The point is to get
     replacement values"""
-    #Initiailize each list by putting in the best hitter (will remove later)
+    # Initiailize each list by putting in the best hitter (will remove later)
     meta_ranked = dict()
     for m in ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C']:
         meta_ranked[m] = df.head(1)
     for _, row in df.iterrows():
-        #Get the sgp of the player in this row
+        # Get the sgp of the player in this row
         sgp = row['SGP']
-        #now get the rank of the available positions
+        # now get the rank of the available positions
         posrank = dict()
         #Loop over all positions this player is eligible at
-        #Get the SGP of all players at each eligible position
+        # Get the SGP of all players at each eligible position
         for pos in row['Pos'].split(','):
             sgpofcolumn = meta_ranked[pos]['SGP'].get_values()
             #For each eligible position, find out how many players are better (by SGP)
             posrank[pos] = get_rank(sgpofcolumn, sgp)
-        #Get which position the player would be the next best at by finding the
+        # Get which position the player would be the next best at by finding the
         # one with the least number of better players at it
         highest = min(posrank.values())
         bestposits = [k for k, v in posrank.items() if v == highest]
-        #In the case of ties, go down the defensive spectrum
+        # In the case of ties, go down the defensive spectrum
         defensive_spectrum = ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B',
                               'SS', 'C']
-        #Values overwrite each other so the toughest to fill position is left at the end
+        # Values overwrite each other so the toughest to fill position is left at the end
         for pp in defensive_spectrum:
             if pp in bestposits:
                 bestpos = pp
-        #Finally add the row to the end of the correct dataframe
+        # Finally add the row to the end of the correct dataframe
         meta_ranked[bestpos] = meta_ranked[bestpos].append(row, ignore_index='True')
-    #Now remove the initialized value of the best hitter in each list
+    # Now remove the initialized value of the best hitter in each list
     for m in meta_ranked:
         meta_ranked[m] = meta_ranked[m].drop(0)
         meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
     sgp = load_sgp_thresh_last_year('H')
-    #also need to account for the bench hitters. assume every team carries 3.
+    # also need to account for the bench hitters. assume every team carries 3.
     # then 42 extra hitters. more than 4 teams worth
     star_thresh = dict()
-    #We need to normalize SGP so that the total available SGP of all hitters is
+    # We need to normalize SGP so that the total available SGP of all hitters is
     # the number of points that can be gained (i.e., for each category, there are
     # 14 teams, so there are 13 points to be gained in each for each)
     sgp_new = dict()
     for sgpcat in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']:
-        #loop over hitting categories
+        # loop over hitting categories
         star = 0
         for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: # NO UONLY
             #Load the sum of SGP for each category at each position
             star += meta_ranked[pos][sgpcat][:N_teams].sum()
-        #We're aiming to minimize this total in order that the sum of points of
+        # We're aiming to minimize this total in order that the sum of points of
         # all the owned players represents the correct
-        #Use sum(i=1:N,i)=(N+1)N/2
-        #Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
-        #total number of sgp that can be gained by all teams..each category should have the same # ofthese
-        #N_teams not N_teams+4
+        # Use sum(i=1:N,i)=(N+1)N/2
+        # Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
+        # total number of sgp that can be gained by all teams..each category should have the same # ofthese
+        # N_teams not N_teams+4
         star_thresh[sgpcat] = star - N_teams*(N_teams-1)/2
-        #N_teams-1    #N_teams*(N_teams-1)/2
-        #This is the offset threshold that gets added on so that the total number of category points are right
-        #This gets added in to the old values
-        #Divide the difference by the total number of active players since all  will be contributing to the category
+        # N_teams-1    #N_teams*(N_teams-1)/2
+        # This is the offset threshold that gets added on so that the total number of category points are right
+        # This gets added in to the old values
+        # Divide the difference by the total number of active players since all  will be contributing to the category
         cat_offsets[sgpcat] += star_thresh[sgpcat]/((N_teams)*N_activehitters)
     # Get the positional difference by looking at the value of the last player
     pos_offsets = dict()
@@ -122,13 +119,13 @@ def calcPositionOffsets(cat_offsets, df):
 def get_rank(listo,sgp):
     """returns the index of the first item in a sorted list (must be descending)
      whose value is less than an input value"""
-    #Get the first item in the list whose value falls under the entered one
+    # Get the first item in the list whose value falls under the entered one
     try:
         index = next(index for index, value in enumerate(listo) if value < sgp)
-    #If we reach the end of the list use the last entry as the index
+    # If we reach the end of the list use the last entry as the index
     except StopIteration:
         index = len(listo)
-    #If the largest value in the list is the first one below the input value,
+    # If the largest value in the list is the first one below the input value,
     # return an empty string. This is meant for the case in which the player
     # is the best at their position and accounts for players being placed at
     # U when they should really go to another list
@@ -189,6 +186,7 @@ def addPositions(udf, pos_offsets):
         meta[key].to_csv(output_dir + key + '.csv', index=False)
     return udf, meta
 
+
 def load_sgp_thresh_last_year(players):
     """Get the SGP replacement level headers from the matlab script
     (Get_SGP_thresholds_from_lastyeardata.m)"""
@@ -229,19 +227,19 @@ def assign_positions_to_dataframes(df):
 
 
 def calcSGPPitchers(cat_offsets, SP, RP):
-    #Get the SGP replacement level values from the matlab script
-    #These are the headers
+    # Get the SGP replacement level values from the matlab script
+    # These are the headers
     sgp = load_sgp_thresh_last_year('P')
-    #Sort the data for SP and keep the top pitchers for calculating rate cats
+    # Sort the data for SP and keep the top pitchers for calculating rate cats
     SP = SP.sort_values(by='WAR', ascending=False)
     top_SP = SP.head(N_SP * N_teams)
-    #sort the relievers
+    # sort the relievers
     RP = RP.sort_values(by='WAR', ascending=False)
     top_RP = RP.head(N_RP * N_teams)
-    #Now combine the sp and rp
+    # Now combine the sp and rp
     top_P = pd.concat([top_SP, top_RP], axis=0)
     P = pd.concat([SP, RP], axis=0)
-    #Calculate "wERA"
+    # Calculate "wERA"
     numer_SP = (N_SP - 1) * top_SP['ER'].mean() + N_RP * top_RP['ER'].mean()
     denom_SP = (N_SP - 1) * top_SP['IP'].mean() + N_RP * top_RP['IP'].mean()
     numer_RP = N_SP * top_SP['ER'].mean() + (N_RP - 1) * top_RP['ER'].mean()
@@ -292,7 +290,7 @@ def calcSGPPitchers(cat_offsets, SP, RP):
             val = (numer_SP + row['SO']) / (denom_SP + row['BB'])
         wsobb.append(val - mean_sobb)
     P['wSO/BB'] = wsobb
-    #Now get the sgp by dividing by the values calculated from last year's totals
+    # Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['ERA', 'WHIP', 'IP/GS', 'SO/BB']:
         P['s' + cat] = P['w' + cat] / sgp[cat][0] - cat_offsets['s' + cat][0]
     for cat in ['SO', 'W', 'SV', 'HLD']:
@@ -300,19 +298,20 @@ def calcSGPPitchers(cat_offsets, SP, RP):
     P.loc[P['GNS']>0, 'sIP/GS'] = 0
     P.loc[P['GNS']==0, 'sSV'] = 0
     P.loc[P['GNS']==0, 'sHLD'] = 0
-    #Sum up all of these entries to get the total SGP
+    # Sum up all of these entries to get the total SGP
     P['SGP'] = P[['sERA', 'sWHIP', 'sIP/GS', 'sSO/BB',
                     'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
-    #Now sort by total SGP descending
+    # Now sort by total SGP descending
     P = P.sort_values(by='SGP', ascending=False)
     P = P.reset_index(drop=True)
     SP = P[P['GS']>0].reset_index(drop=True)
     RP = P[P['GS']==0].reset_index(drop=True)
     return SP, RP, P
 
+
 def normSGPPitchers(cat_offsets, SP, RP):
     sgp_thresh = dict()
-    #Loop over each category
+    # Loop over each category
     N_topSP = N_teams * N_SP
     N_topRP = N_teams * N_RP
     # for k in range(0, 8):
@@ -324,7 +323,7 @@ def normSGPPitchers(cat_offsets, SP, RP):
 
 
 def reorder_cols(P):
-    #Write the output header file
+    # Write the output header file
     column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
              "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
              "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
