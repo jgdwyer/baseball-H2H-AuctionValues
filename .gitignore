@@ -1,6 +1,8 @@
 .DS_Store
 .ipynb_checkpoints
+.idea
 __pycache__
 jabo2017.ipynb
 output
 source_data
+baseball/*.pyc
