@@ -1,32 +1,30 @@
 import csv
+
 import pandas as pd
 import numpy as np
-from os.path import join
-import re
+from bs4 import BeautifulSoup
+
 
 def run(players):
-    parse_csv('cbs_' + players + '.html')
+    cbs_df = parse_cbs_files(players)
     df = load_fangraphs(players)
     df = add_cats(df, players)
     df = add_cbs_id(df)
     df = add_ids_manually(df, players)
     df = print_missing_and_remove_nulls(df)
-    df = addcbs_info(df, players)
+    df = addcbs_info(df, cbs_df, players)
     return df
+
 
 def load_fangraphs(players):
     return pd.read_csv('./source_data/proj_dc_' + players + '.csv')
 
-def add_hitter_cats(df):
-    df['1B'] = df['H'] - (df['2B'] + df['3B'] + df['HR'])
-    df['TB'] = df['1B']*1 + df['2B']*2 + df['3B']*3 + df['HR']*4
-    return df
 
 def add_ids_manually(df, players):
     fg_to_cbs = dict()
     if players == 'hitters':
-        fg_to_cbs['3711'] = '1741019'
-        fg_to_cbs['sa737507'] = '2066300'
+        fg_to_cbs['sa877503'] = '2211777'  # acuna
+        fg_to_cbs['19755'] = '2901324'  # ohtani
     elif players == 'pitchers':
         fg_to_cbs['sa658473'] = '2044482'
         fg_to_cbs['sa621465'] = '2138864'
@@ -34,8 +32,9 @@ def add_ids_manually(df, players):
     else:
         raise ValueError('Incorrect player string')
     for fgid, cbsid in fg_to_cbs.items():
-        df.loc[df.playerid==fgid, 'cbs_id'] = cbsid
+        df.loc[df.playerid == fgid, 'cbs_id'] = cbsid
     return df
+
 
 def add_cats(df, players):
     if players == 'hitters':
@@ -55,25 +54,20 @@ def add_cats(df, players):
         raise ValueError('Incorrect player string')
     return df
 
-def add_cbs_id(df):
-    idkey = pd.read_csv('./source_data/ids.csv', dtype={'cbs_id': str})
-    # Merge dataframes (SQL-style)
-    out = df.merge(idkey[['fg_id', 'cbs_id']], left_on='playerid',
-                 right_on='fg_id', how='left')
-    return out
 
-def addcbs_info(df, players):
+def add_cbs_id(df):
+    idkey = pd.read_csv('./source_data/ids.csv', dtype={'cbs_id': str}, encoding='iso-8859-1')
+    # Merge dataframes (SQL-style)
+    return df.merge(idkey[['fg_id', 'cbs_id']], left_on='playerid', right_on='fg_id', how='left')
+
+
+def addcbs_info(df, cbs, players):
     """This function writes the eligible cbssports positions to the projections file"""
-    #Load jabo cbssports data for player (cbsid, name, team, salary, etc.)
-    #Load csv data of player cbsid, player name, and mlb team
-    cbs = pd.read_csv('./source_data/cbs_' + players + '.csv',
-                    names=['cbs_id', 'mlb_team','jabo_team', 'Pos', 'Salary'],
-                    dtype={'cbs_id':str})
     out = df.merge(cbs, left_on='cbs_id', right_on='cbs_id', how='inner')
     print('Some data in the cbs players file is NA -- removing it:')
-    print(out[out.isnull().any(axis=1)][['Name', 'Team', 'jabo_team', 'Salary', 'WAR']])
-    out = out[out['Pos'].notnull()]
-    return out
+    print(out.loc[out['position'].isnull(), ['Name', 'Team', 'Pos', 'jabo_team', 'Salary', 'WAR']])
+    return out[out['position'].notnull()]
+
 
 def print_missing_and_remove_nulls(out):
     # Show the best missing hitters that our id file doesn't have
@@ -83,6 +77,7 @@ def print_missing_and_remove_nulls(out):
     # Remove rows that are null in fangraph ids
     out = out[out['cbs_id'].notnull()]
     return out
+
 
 def separate_SP_RP(df):
     SP = pd.DataFrame(columns=df.columns)
@@ -98,50 +93,20 @@ def separate_SP_RP(df):
     return SP, RP
 
 
-def parse_csv(html_filename):
-    """Converts the cbs html files to csv. The whole thing should be rewritten
-        with beautiful soup rather than regular expressions.
-    in: html_filename [str] -- the filename of the html
-                               (e.g. 'cbs_hitters.html')"""
-    csv_file = html_filename[:-5] + '.csv'
-    outfile=open('./source_data/' + csv_file, 'w')
-    writer = csv.writer(outfile, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    with open('./source_data/' + html_filename) as infile:
-        for line in infile:
-            # Extract the cbs player id
-            cbsid = re.findall(r'actionButtons_(.*?)"><',line)
-            cbsid = ''.join(cbsid)
-            # Extract the mlb team
-            mlb = re.findall(r' \| (.*?)<',line)
-            mlb = ''.join(mlb)
-            # Extract the jabo team
-            jabo = re.findall(r'tooltip[\'"] title=(.*?)>', line)
-            jabo = ''.join(jabo)
-            if "On Waivers" in jabo:
-                jabo = 'Free Agent'
-            else:
-                jabo = re.findall(r'Owned By (.*?)\'>', line)
-                jabo = ''.join(jabo)
-                jabo = jabo.split('"')[0]
-            # Extract the eligible positions
-            line = re.findall(r'"right">(.*?)<\/td><td align="right">9999', line)
-            line = ''.join(line)
-            if 'hitters' in html_filename:
-                pos = re.findall(r'^(.*?)<', line)
-            else:
-                pos = re.findall(r'^(.*?)<\/td', line)
-            pos = ''.join(pos)
-            # Extract the players' salaries
-            sal = re.findall(r'right\">(.*?)$', line)
-            sal = ''.join(sal)
-            if sal:
-                sal = int(sal)
-            # Store as list and write to a row in csv file
-            c=[]
-            if mlb:
-                c.append(cbsid)
-                c.append(mlb)
-                c.append(jabo)
-                c.append(pos)
-                c.append(sal)
-                writer.writerow(c)
+def parse_cbs_files(players):
+    """Converts the cbs html files to csv."""
+    soup = BeautifulSoup(open('./source_data/cbs_{:s}.html'.format(players), encoding='cp1252'), 'html.parser')
+    sortable_stats = soup.find(attrs={"id": "sortableStats"})
+    players = sortable_stats.find_all('tr')
+    jabo_team, mlb_team, pos, sal, name, cbs_id = [], [], [], [], [], []
+    for player in players:
+        row = player.find_all('td')
+        if len(row) == 6:  # make sure it's not a header or other bogus row
+            jabo_team.append(row[1].find('span')['title'])
+            name.append(row[2].find('a').string)
+            mlb_team.append(row[2].find('span').string[-3:])
+            cbs_id.append(row[2].find('a')['href'].split('/')[-1])
+            pos.append(row[3].string)
+            sal.append(row[4].string)
+    return pd.DataFrame({'player_name': name, 'jabo_team': jabo_team, 'mlb_team': mlb_team, 'position': pos,
+                         'salary': sal, 'cbs_id': cbs_id})
