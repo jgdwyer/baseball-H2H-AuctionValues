@@ -1,7 +1,8 @@
 import pandas as pd
+import numpy as np
 
 N_teams = 14
-N_activehitters = 9
+N_hitters = 9
 N_SP = 8
 N_RP = 4
 budget = 260
@@ -16,19 +17,19 @@ def calcSGPHitters(df, cat_offsets):
     # Sort the data
     df = df.sort_values(by='wOBA', ascending=False)
     # Keep only the top players for calculating averages for rate categories
-    top_hitters = df.head(N_activehitters * N_teams)
+    top_hitters = df.head(N_hitters * N_teams)
     # Calculate "wAVG"
-    numer = (N_activehitters - 1) * top_hitters['H'].mean() + df['H']
-    denom = (N_activehitters - 1) * top_hitters['AB'].mean() + df['AB']
+    numer = (N_hitters - 1) * top_hitters['H'].mean() + df['H']
+    denom = (N_hitters - 1) * top_hitters['AB'].mean() + df['AB']
     df['wAVG'] = numer/denom - top_hitters['AVG'].mean()
     # Calculate wOBA
     monbase = top_hitters['PA'].mean() * top_hitters['OBP'].mean()
-    numer = (N_activehitters - 1) * monbase + df['H'] + df['BB'] + df['HBP']
-    denom = (N_activehitters - 1) * top_hitters['PA'].mean() + df['PA']
+    numer = (N_hitters - 1) * monbase + df['H'] + df['BB'] + df['HBP']
+    denom = (N_hitters - 1) * top_hitters['PA'].mean() + df['PA']
     df['wOBP'] = numer/denom - top_hitters['OBP'].mean()
     # Calculate wSLG
-    numer = (N_activehitters - 1) * top_hitters['TB'].mean() + df['TB']
-    denom = (N_activehitters - 1) * top_hitters['AB'].mean() + df['AB']
+    numer = (N_hitters - 1) * top_hitters['TB'].mean() + df['TB']
+    denom = (N_hitters - 1) * top_hitters['AB'].mean() + df['AB']
     df['wSLG'] = numer/denom - top_hitters['SLG'].mean()
     # Now get the sgp by dividing by the values calculated from last year's totals
     for cat in ['AVG', 'OBP', 'SLG']:
@@ -40,8 +41,7 @@ def calcSGPHitters(df, cat_offsets):
                     'sR', 'sRBI', 'sSB', 'sTB']].sum(axis=1)
     # Now sort by total SGP descending
     df = df.sort_values(by='SGP', ascending=False)
-    df = df.reset_index(drop=True)
-    return df
+    return df.reset_index(drop=True)
 
 
 def calcPositionOffsets(cat_offsets, df):
@@ -135,8 +135,8 @@ def get_rank(listo,sgp):
 
 
 def addPositions(udf, pos_offsets):
-    #Load the files into lists
-    #Sort the dictionary (returns a list of tuples)
+    # Load the files into lists
+    # Sort the dictionary (returns a list of tuples)
     sgp_pos_add_sort = sorted(pos_offsets.items(),
                               key=lambda pos_offsets: pos_offsets[1],
                               reverse=True) # should go largest to smallest
@@ -148,7 +148,7 @@ def addPositions(udf, pos_offsets):
     for cntrr, row in udf.iterrows():
         # Check to see if the player gets extra points -- the following go IN ORDER
         for pp in sgp_pos_add_sort:
-            if pp[0] in row['Pos'].split(','):
+            if pp[0] in row['position'].split(','):
                 sgp_addend[cntrr] = pp[1]
     # Create position assigned row
     udf['p_SGP'] = udf['SGP'] - sgp_addend
@@ -156,17 +156,17 @@ def addPositions(udf, pos_offsets):
     udf = udf.sort_values(by='p_SGP', ascending=False)
     udf = udf.reset_index(drop=True)
     # Get the sum of SGP and p_SGP of the owned, starting players
-    sgp_sum = udf['SGP'][:N_teams * N_activehitters].sum()
-    p_sgp_sum = udf['p_SGP'][:N_teams * N_activehitters].sum()
+    sgp_sum = udf['SGP'][:N_teams * N_hitters].sum()
+    p_sgp_sum = udf['p_SGP'][:N_teams * N_hitters].sum()
     # Get the difference from what it should be
-    sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)#/(N_teams*N_activehitters)  #8 hitting cats
-    p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)#/(N_teams*N_activehitters)
+    sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)  # /(N_teams*N_hitters)  #8 hitting cats
+    p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)  # /(N_teams*N_hitters)
     print('sgp diff (should be near zero):{:.1f}'.format(sgp_diff))
     print('p_sgp diff (should be near zero):{:.1f}'.format(p_sgp_diff))
     # Calculate expected salaries
     udf['xusal'] = udf['SGP'] / sgp_sum * budget * frac_hitter_budget * N_teams
     udf['xsal'] = udf['p_SGP'] / p_sgp_sum * budget * frac_hitter_budget * N_teams
-    udf['dsal'] = udf['Salary'] - udf['xsal']
+    udf['dsal'] = udf['salary'] - udf['xsal']
     # Round the dataframe
     rounding_dict = {'wAVG': 3, 'wOBP': 3, 'wSLG': 3, "sAVG": 1, "sOBP": 1,
                      "sSLG": 1, "sHR": 1, "sR": 1, "sRBI": 1, "sSB": 1,
@@ -174,7 +174,7 @@ def addPositions(udf, pos_offsets):
                      'dsal':0}
     udf = udf.round(rounding_dict)
     # Reorder columns
-    column_order = ["Name", "xusal", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "Pos",
+    column_order = ["Name", "xusal", "xsal", "salary", "dsal", "mlb_team", "jabo_team", "position",
                  "PA", "AVG", "OBP", "SLG", "HR", "SB", "sAVG", "sOBP", "sSLG",
                  "sR", "sRBI", "sTB", "sHR", "sSB", "R", "RBI", "wOBA", "WAR",
                  "playerid", "SGP", "p_SGP"]
@@ -183,45 +183,27 @@ def addPositions(udf, pos_offsets):
     meta = assign_positions_to_dataframes(udf)
     # Write each to file
     for key, _ in meta.items():
-        meta[key].to_csv(output_dir + key + '.csv', index=False)
+        meta[key].to_csv('./output/' + key + '.csv', index=False)
     return udf, meta
 
 
 def load_sgp_thresh_last_year(players):
     """Get the SGP replacement level headers from the matlab script
     (Get_SGP_thresholds_from_lastyeardata.m)"""
-    if players == 'H':
-        file_tail = ''
-    elif players == 'P':
-        file_tail = '_P'
-    else:
-        raise ValueError("Players should be 'H' or 'P' ")
-    header = pd.read_csv('./source_data/sgp_thresh_lastyear_header' +
-                         file_tail + '.csv')
-    sgp = pd.read_csv('./source_data/sgp_thresh_lastyear_values' +
-                         file_tail + '.csv', names=header)
-    return sgp
+    return pd.read_csv('./source_data/sgp_thresh_lastyear_values_' + players + '.csv')
 
 
 def assign_positions_to_dataframes(df):
     """Given an input dataframe, create a dictionary of dataframes for each
     position and assign each player to one or more of the position dataframes"""
-    meta = {'RF': pd.DataFrame(columns=df.columns),
-            'CF': pd.DataFrame(columns=df.columns),
-            'LF': pd.DataFrame(columns=df.columns),
-            '1B': pd.DataFrame(columns=df.columns),
-            '2B': pd.DataFrame(columns=df.columns),
-            'SS': pd.DataFrame(columns=df.columns),
-            '3B': pd.DataFrame(columns=df.columns),
-            'C': pd.DataFrame(columns=df.columns),
-            'U': pd.DataFrame(columns=df.columns),
-            'Uonly': pd.DataFrame(columns=df.columns)}
+    meta = {pos: pd.DataFrame(columns=df.columns) for pos in ['RF', 'CF', 'LF', '1B', '2B', 'SS', '3B', 'C', 'U',
+                                                              'Uonly']}
     # For each player, write a new row for each position
     for _, row in df.iterrows():
-        for pos in row['Pos'].split(','):
+        for pos in row['position'].split(','):
             meta[pos] = meta[pos].append(row, ignore_index='True')
         # Handle the case when the only eligible position is utility
-        if row['Pos'] == 'U':
+        if row['position'] == 'U':
             meta['Uonly'] = meta['Uonly'].append(row, ignore_index='True')
     return meta
 
@@ -324,9 +306,9 @@ def normSGPPitchers(cat_offsets, SP, RP):
 
 def reorder_cols(P):
     # Write the output header file
-    column_order = ["Name", "xsal", "Salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
-             "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
-             "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
+    column_order = ["Name", "xsal", "salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
+                    "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
+                    "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
     # Get an estimate for the expected salary
     N_topP = N_teams * (N_SP + N_RP) + 1
     sgp_sum = P['SGP'][:N_topP].sum()
@@ -334,7 +316,7 @@ def reorder_cols(P):
     print('The total SGP should be close to 0: {:.1f}'.format(sgp_sum_diff))
     # Calculate expected salary
     P['xsal'] = P['SGP'] / sgp_sum * budget * frac_pitcher_budget * N_teams
-    P['dsal'] = P['Salary'] - P['xsal']
+    P['dsal'] = P['salary'] - P['xsal']
     # Round output columns
     rounding_dict = {'SO/BB': 1, "IP/GS": 1, "sERA": 1, "sWHIP": 1, "sIP/GS": 1,
                      "sSO/BB": 1, "sSO": 1, "sW": 1, "sSV": 1, 'sHLD': 1,
