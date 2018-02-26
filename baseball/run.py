@@ -8,7 +8,7 @@ def do_hitters():
     print(df.head())
     df.to_csv('./df.csv')
     cat_offsets.to_pickle('./cat.p')
-    for i in range(5):
+    for i in range(3):
         print('Loop {:d}'.format(i))
         df = sgp.calcSGPHitters(df, cat_offsets)
         cat_offsets, pos_offsets = sgp.calcPositionOffsets(cat_offsets, df)

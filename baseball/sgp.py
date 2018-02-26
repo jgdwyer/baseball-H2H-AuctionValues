@@ -50,13 +50,13 @@ def calcPositionOffsets(cat_offsets, df):
     actually matter what list a player is assigned to. The point is to get
     replacement values"""
     # Initiailize each list by putting in the best hitter (will remove later)
-    defensive_spectrum = {'C': 0, 'SS': 1, '2B': 2, '3B': 3, 'CF': 4, 'LF': 5, 'RF': 6, '1B': 7, 'U': 9}
+    defensive_spectrum = {'C': 0, 'SS': 1, '2B': 2, '3B': 3, 'CF': 4, 'LF': 5, 'RF': 6, '1B': 7, 'U': 8}
     positions = list(defensive_spectrum.keys())
     meta_ranked = {m: pd.DataFrame(columns=df.columns) for m in positions}
     for _, row in df.iterrows():
         # Loop over all positions this player is eligible at
         # Get the SGP of all players at each eligible position
-        posrank = pd.Series(index=['U', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C'])
+        posrank = pd.Series(index=positions)
         for pos in row['position'].split(','):
             posrank[pos] = len(meta_ranked[pos])  # how many better players are already assigned to that position
         bestposits = list(posrank[posrank == posrank.min()].index)
@@ -68,7 +68,7 @@ def calcPositionOffsets(cat_offsets, df):
     cat_offsets = update_category_offsets(cat_offsets, meta_ranked, positions)
     # Get the positional difference by looking at the value of the last player
     # TODO: These don't seem to be normalized correctly
-    pos_offsets = {pos: meta_ranked[pos]['SGP'][N_teams-1] for pos in positions}
+    pos_offsets = pd.Series({pos: meta_ranked[pos]['SGP'][N_teams-1] for pos in positions})
     return cat_offsets, pos_offsets
 
 
@@ -90,24 +90,19 @@ def update_category_offsets(cat_offsets, meta_ranked, positions):
     print('Updated offsets for each category. Should get progressively smaller: {}'.format(sgp_difference_per_cat))
     return cat_offsets
 
+
 def addPositions(udf, pos_offsets):
-    # Load the files into lists
-    # Sort the dictionary (returns a list of tuples)
-    sgp_pos_add_sort = sorted(pos_offsets.items(),
-                              key=lambda pos_offsets: pos_offsets[1],
-                              reverse=True) # should go largest to smallest
-                              # largest corresponds to best offensive poistion
-    # IGNORE FIRST VALUE???
+    pos_offsets = pos_offsets.sort_values()
     # Initialize
-    sgp_addend = [0] * len(udf)
+    pos_offset_values = pd.Series(index=udf.index)
     # Now go thru each player, add their new score and add them to the appropriate output list
     for cntrr, row in udf.iterrows():
         # Check to see if the player gets extra points -- the following go IN ORDER
-        for pp in sgp_pos_add_sort:
-            if pp[0] in row['position'].split(','):
-                sgp_addend[cntrr] = pp[1]
+        player_positions = row['position'].split(',')
+        most_valuable_position = sorted(player_positions, key=lambda x: pos_offsets[x])[0]
+        pos_offset_values[cntrr] = pos_offsets[most_valuable_position]
     # Create position assigned row
-    udf['p_SGP'] = udf['SGP'] - sgp_addend
+    udf['p_SGP'] = udf['SGP'] - pos_offset_values
     # Sort dataframe by descending p_SGP
     udf = udf.sort_values(by='p_SGP', ascending=False)
     udf = udf.reset_index(drop=True)
@@ -116,7 +111,7 @@ def addPositions(udf, pos_offsets):
     p_sgp_sum = udf['p_SGP'][:N_teams * N_hitters].sum()
     # Get the difference from what it should be
     sgp_diff = (N_teams*(N_teams-1)*8/2-sgp_sum)  # /(N_teams*N_hitters)  #8 hitting cats
-    p_sgp_diff= (N_teams*(N_teams-1)*8/2-p_sgp_sum)  # /(N_teams*N_hitters)
+    p_sgp_diff = (N_teams*(N_teams-1)*8/2-p_sgp_sum)  # /(N_teams*N_hitters)
     print('sgp diff (should be near zero):{:.1f}'.format(sgp_diff))
     print('p_sgp diff (should be near zero):{:.1f}'.format(p_sgp_diff))
     # Calculate expected salaries
