@@ -1,14 +1,13 @@
 import pandas as pd
-from baseball import sgp
-
-from baseball import prep
-
+from baseball import sgp, prep
 
 def do_hitters():
     df = prep.run('hitters')
-    # sgp_addends = [0, 0, 0, 0, 0, 0, 0, 0]
-    cat_offsets = pd.DataFrame(data={'sAVG': 0, 'sOBP': 0, 'sSLG': 0, 'sHR': 0,
-                                     'sR': 0, 'sRBI': 0, 'sSB': 0, 'sTB': 0}, index=[0])
+    cat_offsets = pd.DataFrame(data={key: 0 for key in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']},
+                               index=[0])
+    print(df.head())
+    df.to_csv('./df.csv')
+    cat_offsets.to_pickle('./cat.p')
     for i in range(5):
         print('Loop {:d}'.format(i))
         df = sgp.calcSGPHitters(df, cat_offsets)
@@ -16,7 +15,7 @@ def do_hitters():
     print('Thresholds for each category. Should be small:{}'.format(star_thresh))
     print('Offsets in each category:{}'.format(cat_offsets))
     print('Offsets at each position:{}'.format(pos_offsets))
-    U, meta = calc_sgp.addPositions(df, pos_offsets)
+    U, meta = sgp.addPositions(df, pos_offsets)
     return U, meta
 
 
@@ -31,17 +30,16 @@ def do_pitchers():
         cat_offsets, sgp_thresh = sgp.normSGPPitchers(cat_offsets, SP, RP)
     print('Thresholds for each category. Should be small:{}'.format(sgp_thresh))
     print('Offsets in each category:{}'.format(cat_offsets))
-    P, SP, RP = sgp.reorder_cols(P)# scorep.reorder_cols()
+    P, SP, RP = sgp.reorder_cols(P)
+    P.to_csv('./output/P.csv', index=False)
+    SP.to_csv('./output/SP.csv', index=False)
+    RP.to_csv('./output/RP.csv', index=False)
     return P, SP, RP
 
 
-def write_to_file():
-    output_file = "./output/dc_3_23_2017.xlsx"
+def write_to_file(U, meta, SP, RP):
+    output_file = "./output/dc_2_16_2018.xlsx"
     # Parse files
-    parse.parse_csv('cbs_hitters.html')
-    parse.parse_csv('cbs_pitchers.html')
-    U, meta = do_hitters()
-    P, SP, RP = do_pitchers()
     writer = pd.ExcelWriter(output_file, engine='xlsxwriter')
     U.to_excel(writer, sheet_name='U')
     SP.to_excel(writer, sheet_name='SP')

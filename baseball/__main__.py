@@ -1,5 +1,6 @@
 from baseball import run
 
 if __name__ == "__main__":
-    run.do_hitters()
-    run.do_pitchers()
+    U, meta = run.do_hitters()
+    P, SP, RP = run.do_pitchers()
+    run.write_to_file(U, meta, SP, RP)
