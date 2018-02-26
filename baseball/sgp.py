@@ -50,89 +50,45 @@ def calcPositionOffsets(cat_offsets, df):
     actually matter what list a player is assigned to. The point is to get
     replacement values"""
     # Initiailize each list by putting in the best hitter (will remove later)
-    meta_ranked = dict()
-    for m in ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C']:
-        meta_ranked[m] = df.head(1)
+    defensive_spectrum = {'C': 0, 'SS': 1, '2B': 2, '3B': 3, 'CF': 4, 'LF': 5, 'RF': 6, '1B': 7, 'U': 9}
+    positions = list(defensive_spectrum.keys())
+    meta_ranked = {m: pd.DataFrame(columns=df.columns) for m in positions}
     for _, row in df.iterrows():
-        # Get the sgp of the player in this row
-        sgp = row['SGP']
-        # now get the rank of the available positions
-        posrank = dict()
-        #Loop over all positions this player is eligible at
+        # Loop over all positions this player is eligible at
         # Get the SGP of all players at each eligible position
-        for pos in row['Pos'].split(','):
-            sgpofcolumn = meta_ranked[pos]['SGP'].get_values()
-            #For each eligible position, find out how many players are better (by SGP)
-            posrank[pos] = get_rank(sgpofcolumn, sgp)
-        # Get which position the player would be the next best at by finding the
-        # one with the least number of better players at it
-        highest = min(posrank.values())
-        bestposits = [k for k, v in posrank.items() if v == highest]
-        # In the case of ties, go down the defensive spectrum
-        defensive_spectrum = ['U', 'Uonly', '1B', 'RF', 'LF', 'CF', '3B', '2B',
-                              'SS', 'C']
-        # Values overwrite each other so the toughest to fill position is left at the end
-        for pp in defensive_spectrum:
-            if pp in bestposits:
-                bestpos = pp
+        posrank = pd.Series(index=['U', '1B', 'RF', 'LF', 'CF', '3B', '2B', 'SS', 'C'])
+        for pos in row['position'].split(','):
+            posrank[pos] = len(meta_ranked[pos])  # how many better players are already assigned to that position
+        bestposits = list(posrank[posrank == posrank.min()].index)
+        # In the case of ties, go down the defensive spectrum - sort is ascending so lower values are better
+        bestpos = sorted(bestposits, key=lambda x: defensive_spectrum[x])[0]  # custom sorting
         # Finally add the row to the end of the correct dataframe
         meta_ranked[bestpos] = meta_ranked[bestpos].append(row, ignore_index='True')
-    # Now remove the initialized value of the best hitter in each list
-    for m in meta_ranked:
-        meta_ranked[m] = meta_ranked[m].drop(0)
-        meta_ranked[m] = meta_ranked[m].reset_index(drop=True)
-    sgp = load_sgp_thresh_last_year('H')
-    # also need to account for the bench hitters. assume every team carries 3.
-    # then 42 extra hitters. more than 4 teams worth
-    star_thresh = dict()
-    # We need to normalize SGP so that the total available SGP of all hitters is
-    # the number of points that can be gained (i.e., for each category, there are
-    # 14 teams, so there are 13 points to be gained in each for each)
-    sgp_new = dict()
-    for sgpcat in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']:
-        # loop over hitting categories
-        star = 0
-        for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']: # NO UONLY
-            #Load the sum of SGP for each category at each position
-            star += meta_ranked[pos][sgpcat][:N_teams].sum()
-        # We're aiming to minimize this total in order that the sum of points of
-        # all the owned players represents the correct
-        # Use sum(i=1:N,i)=(N+1)N/2
-        # Total SGP available: Team A can gain 13pnts, Team B can gain 12pnts, etc.
-        # total number of sgp that can be gained by all teams..each category should have the same # ofthese
-        # N_teams not N_teams+4
-        star_thresh[sgpcat] = star - N_teams*(N_teams-1)/2
-        # N_teams-1    #N_teams*(N_teams-1)/2
-        # This is the offset threshold that gets added on so that the total number of category points are right
-        # This gets added in to the old values
-        # Divide the difference by the total number of active players since all  will be contributing to the category
-        cat_offsets[sgpcat] += star_thresh[sgpcat]/((N_teams)*N_activehitters)
+    # TODO: Account for bench hitters?
+    cat_offsets = update_category_offsets(cat_offsets, meta_ranked, positions)
     # Get the positional difference by looking at the value of the last player
-    pos_offsets = dict()
-    for pos in ['U', '1B', 'RF', 'LF', 'CF', '3B', '2B','SS', 'C']:
-        # TODO: These don't seem to be normalized correctly
-        pos_offsets[pos] = meta_ranked[pos]['SGP'][N_teams-1]
-        # pos_offsets[pos] = meta_ranked[pos]['SGP'][:(N_teams-1)].mean()
-    return cat_offsets, pos_offsets, star_thresh
+    # TODO: These don't seem to be normalized correctly
+    pos_offsets = {pos: meta_ranked[pos]['SGP'][N_teams-1] for pos in positions}
+    return cat_offsets, pos_offsets
 
 
-def get_rank(listo,sgp):
-    """returns the index of the first item in a sorted list (must be descending)
-     whose value is less than an input value"""
-    # Get the first item in the list whose value falls under the entered one
-    try:
-        index = next(index for index, value in enumerate(listo) if value < sgp)
-    # If we reach the end of the list use the last entry as the index
-    except StopIteration:
-        index = len(listo)
-    # If the largest value in the list is the first one below the input value,
-    # return an empty string. This is meant for the case in which the player
-    # is the best at their position and accounts for players being placed at
-    # U when they should really go to another list
-    if index == 0:
-        index = ''
-    return index
+def update_category_offsets(cat_offsets, meta_ranked, positions):
+    """
 
+    :param cat_offsets: Previous value
+    :param meta_ranked: dictionary of dataframes
+    :param positions: list of str
+    :return: Updated value of cat_offsets
+    """
+    sgp_per_category = N_teams * (N_teams - 1) / 2
+    sgp_difference_per_cat = dict()
+    for cat in ['sAVG', 'sOBP', 'sSLG', 'sHR', 'sR', 'sRBI', 'sSB', 'sTB']:
+        sgp_assigned = sum([meta_ranked[pos][cat][:N_teams].sum() for pos in positions])
+        sgp_difference_per_cat[cat] = sgp_assigned - sgp_per_category
+        # Divide the difference by the total number of active players since this is a per-player metric
+        cat_offsets[cat] += sgp_difference_per_cat[cat] / (N_teams * N_hitters)
+    print('Updated offsets for each category. Should get progressively smaller: {}'.format(sgp_difference_per_cat))
+    return cat_offsets
 
 def addPositions(udf, pos_offsets):
     # Load the files into lists

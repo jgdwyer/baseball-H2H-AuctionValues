@@ -11,8 +11,7 @@ def do_hitters():
     for i in range(5):
         print('Loop {:d}'.format(i))
         df = sgp.calcSGPHitters(df, cat_offsets)
-        cat_offsets, pos_offsets, star_thresh = sgp.calcPositionOffsets(cat_offsets, df)
-    print('Thresholds for each category. Should be small:{}'.format(star_thresh))
+        cat_offsets, pos_offsets = sgp.calcPositionOffsets(cat_offsets, df)
     print('Offsets in each category:{}'.format(cat_offsets))
     print('Offsets at each position:{}'.format(pos_offsets))
     U, meta = sgp.addPositions(df, pos_offsets)
