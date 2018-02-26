@@ -29,6 +29,7 @@ def add_ids_manually(df, players):
         fg_to_cbs['sa658473'] = '2044482'
         fg_to_cbs['sa621465'] = '2138864'
         fg_to_cbs['sa597893'] = '2449977'
+        fg_to_cbs['19755'] = '2901324'  # ohtani
     else:
         raise ValueError('Incorrect player string')
     for fgid, cbsid in fg_to_cbs.items():
@@ -44,7 +45,7 @@ def add_cats(df, players):
         df['GNS'] = df['G'] - df['GS']  # Games not started
         df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
         df['IP/GS'] = df['IP'].astype('float') / df['GS'].astype('float')
-        df.loc[df['GNS']>0, 'IP/GS'] = 0
+        df.loc[df['GNS'] >0, 'IP/GS'] = 0
         # Handle division by zero case
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df['SO/BB'].fillna(0, inplace=True)
@@ -93,9 +94,9 @@ def separate_SP_RP(df):
     return SP, RP
 
 
-def parse_cbs_files(players):
+def parse_cbs_files(players_str):
     """Converts the cbs html files to csv."""
-    soup = BeautifulSoup(open('./source_data/cbs_{:s}.html'.format(players), encoding='cp1252'), 'html.parser')
+    soup = BeautifulSoup(open('./source_data/cbs_{:s}.html'.format(players_str), encoding='cp1252'), 'html.parser')
     sortable_stats = soup.find(attrs={"id": "sortableStats"})
     players = sortable_stats.find_all('tr')
     jabo_team, mlb_team, pos, sal, name, cbs_id = [], [], [], [], [], []
@@ -107,6 +108,9 @@ def parse_cbs_files(players):
             mlb_team.append(row[2].find('span').string[-3:])
             cbs_id.append(row[2].find('a')['href'].split('/')[-1])
             pos.append(row[3].string)
-            sal.append(row[4].string)
+            sal.append(float(row[4].string))
+    # Handles case of Ohtani
+    if (players_str == 'hitters') and ('2901324' in cbs_id):
+        pos[cbs_id.index('2901324')] = 'U'
     return pd.DataFrame({'player_name': name, 'jabo_team': jabo_team, 'mlb_team': mlb_team, 'position': pos,
                          'salary': sal, 'cbs_id': cbs_id})
