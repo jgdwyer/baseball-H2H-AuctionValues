@@ -30,6 +30,8 @@ def add_ids_manually(df, players):
         fg_to_cbs['sa621465'] = '2138864'
         fg_to_cbs['sa597893'] = '2449977'
         fg_to_cbs['19755'] = '2901324'  # ohtani
+        fg_to_cbs['sa828680'] = '2135265' # kopech
+        fg_to_cbs['sa738675'] = '2250620' # puk
     else:
         raise ValueError('Incorrect player string')
     for fgid, cbsid in fg_to_cbs.items():
@@ -103,7 +105,10 @@ def parse_cbs_files(players_str):
     for player in players:
         row = player.find_all('td')
         if len(row) == 6:  # make sure it's not a header or other bogus row
-            jabo_team.append(row[1].find('span')['title'])
+            try:
+                jabo_team.append(row[1].find('span')['title'])
+            except TypeError:
+                jabo_team.append('Owned by Aman')
             name.append(row[2].find('a').string)
             mlb_team.append(row[2].find('span').string[-3:])
             cbs_id.append(row[2].find('a')['href'].split('/')[-1])
