@@ -23,15 +23,16 @@ def load_fangraphs(players):
 def add_ids_manually(df, players):
     fg_to_cbs = dict()
     if players == 'hitters':
-        fg_to_cbs['sa877503'] = '2211777'  # acuna
-        fg_to_cbs['19755'] = '2901324'  # ohtani
+        fg_to_cbs['sa920245'] = '2221784'  # vlad
+        fg_to_cbs['sa873264'] = '2250589'  # nick senzel
+        fg_to_cbs['sa873981'] = '2447476'  # peter alonso
+        fg_to_cbs['sa918283'] = '2920354'  # nate lowe
+        fg_to_cbs['sa919910'] = '2507363'  # tatis jr
+
     elif players == 'pitchers':
-        fg_to_cbs['sa658473'] = '2044482'
-        fg_to_cbs['sa621465'] = '2138864'
-        fg_to_cbs['sa597893'] = '2449977'
-        fg_to_cbs['19755'] = '2901324'  # ohtani
-        fg_to_cbs['sa828680'] = '2135265' # kopech
-        fg_to_cbs['sa738675'] = '2250620' # puk
+        fg_to_cbs['sa875195'] = '2246181' # padack
+        fg_to_cbs['sa917981'] = '2910624' # luzardo
+
     else:
         raise ValueError('Incorrect player string')
     for fgid, cbsid in fg_to_cbs.items():
@@ -46,12 +47,9 @@ def add_cats(df, players):
     elif players == 'pitchers':
         df['GNS'] = df['G'] - df['GS']  # Games not started
         df['SO/BB'] = df['SO'].astype('float') / df['BB'].astype('float')
-        df['IP/GS'] = df['IP'].astype('float') / df['GS'].astype('float')
-        df.loc[df['GNS'] >0, 'IP/GS'] = 0
         # Handle division by zero case
         df.replace([np.inf, -np.inf], np.nan, inplace=True)
         df['SO/BB'].fillna(0, inplace=True)
-        df['IP/GS'].fillna(0, inplace=True)
         df['W+H'] = df['BB'] + df['H']
     else:
         raise ValueError('Incorrect player string')

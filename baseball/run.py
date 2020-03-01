@@ -1,5 +1,8 @@
 import pandas as pd
+import numpy as np
+
 from baseball import sgp, prep
+
 
 def do_hitters():
     df = prep.run('hitters')
@@ -7,10 +10,11 @@ def do_hitters():
                                index=[0])
     print(df.head())
     df.to_csv('./df.csv')
-    cat_offsets.to_pickle('./cat.p')
-    for i in range(3):
+    for i in range(10):
         print('Loop {:d}'.format(i))
         df = sgp.calcSGPHitters(df, cat_offsets)
+        cat_offsets += np.random.normal(loc=0,scale=.001, size=8)
+        print(cat_offsets)
         cat_offsets, pos_offsets = sgp.calcPositionOffsets(cat_offsets, df)
     print('Offsets in each category:{}'.format(cat_offsets))
     print('Offsets at each position:{}'.format(pos_offsets))
@@ -21,7 +25,7 @@ def do_hitters():
 def do_pitchers():
     df = prep.run('pitchers')
     SP, RP = prep.separate_SP_RP(df)
-    cat_offsets = pd.DataFrame(data={'sERA': 0, 'sWHIP': 0, 'sIP/GS': 0, 'sSO/BB': 0,
+    cat_offsets = pd.DataFrame(data={'sERA': 0, 'sWHIP': 0, 'sIP': 0, 'sSO/BB': 0,
                                      'sSO': 0, 'sW': 0, 'sSV': 0, 'sHLD': 0}, index=[0])
     for i in range(10):
         print('Loop {:d}'.format(i))
@@ -37,7 +41,7 @@ def do_pitchers():
 
 
 def write_to_file(U, meta, SP, RP):
-    output_file = "./output/dc_2_16_2018.xlsx"
+    output_file = "./output/dc_2019-02-06.xlsx"
     # Parse files
     writer = pd.ExcelWriter(output_file, engine='xlsxwriter')
     U.to_excel(writer, sheet_name='U')

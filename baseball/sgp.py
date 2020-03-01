@@ -202,12 +202,6 @@ def calcSGPPitchers(cat_offsets, SP, RP):
             val = (numer_SP + row['W+H']) / (denom_SP + row['IP'])
         wwhip.append(val - mean_whip)
     P['wWHIP'] = wwhip
-    # Calculate "wIP/GS"
-    numer = (N_SP - 1) * top_SP['IP'].mean()
-    denom = (N_SP - 1) * top_SP['GS'].mean()
-    mean_ipgs = numer / denom
-    P['wIP/GS'] = (numer + P['IP']) / (denom + P['GS']) - mean_ipgs
-    P.loc[P['GNS']>0, 'wIP/GS'] = 0
     # Calculate "wSO/BB"
     numer_SP = (N_SP - 1) * top_SP['SO'].mean() + N_RP * top_RP['SO'].mean()
     denom_SP = (N_SP - 1) * top_SP['BB'].mean() + N_RP * top_RP['BB'].mean()
@@ -217,23 +211,22 @@ def calcSGPPitchers(cat_offsets, SP, RP):
                 (top_SP['BB'].mean() + top_RP['BB'].mean())
     wsobb = []
     for _, row in P.iterrows():
-        if row['GS']==0:
+        if row['GS'] == 0:
             val = (numer_RP + row['SO']) / (denom_RP + row['BB'])
         else:
             val = (numer_SP + row['SO']) / (denom_SP + row['BB'])
         wsobb.append(val - mean_sobb)
     P['wSO/BB'] = wsobb
     # Now get the sgp by dividing by the values calculated from last year's totals
-    for cat in ['ERA', 'WHIP', 'IP/GS', 'SO/BB']:
+    for cat in ['ERA', 'WHIP', 'SO/BB']:
         P['s' + cat] = P['w' + cat] / sgp[cat][0] - cat_offsets['s' + cat][0]
-    for cat in ['SO', 'W', 'SV', 'HLD']:
+    for cat in ['SO', 'W', 'SV', 'HLD', 'IP']:
         P['s' + cat] = (P[cat] - sgp[cat][1]) / sgp[cat][0] - cat_offsets['s' + cat][0]
-    P.loc[P['GNS']>0, 'sIP/GS'] = 0
-    P.loc[P['GNS']==0, 'sSV'] = 0
-    P.loc[P['GNS']==0, 'sHLD'] = 0
+    P.loc[P['GNS'] == 0, 'sSV'] = 0
+    P.loc[P['GNS'] == 0, 'sHLD'] = 0
     # Sum up all of these entries to get the total SGP
-    P['SGP'] = P[['sERA', 'sWHIP', 'sIP/GS', 'sSO/BB',
-                    'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
+    P['SGP'] = P[['sERA', 'sWHIP', 'sIP', 'sSO/BB',
+                  'sSO', 'sW', 'sSV', 'sHLD']].sum(axis=1)
     # Now sort by total SGP descending
     P = P.sort_values(by='SGP', ascending=False)
     P = P.reset_index(drop=True)
@@ -248,7 +241,7 @@ def normSGPPitchers(cat_offsets, SP, RP):
     N_topSP = N_teams * N_SP
     N_topRP = N_teams * N_RP
     # for k in range(0, 8):
-    for cat in ["sERA", "sWHIP", "sIP/GS", "sSO/BB", "sSO", "sW", "sHLD", "sSV"]:
+    for cat in ["sERA", "sWHIP", "sIP", "sSO/BB", "sSO", "sW", "sHLD", "sSV"]:
         star = SP[cat][:N_topSP].sum() + RP[cat][:N_topRP].sum()
         sgp_thresh[cat] = star - N_teams*(N_teams - 1)/2
         cat_offsets[cat] += sgp_thresh[cat] / (N_teams * (N_SP + N_RP))
@@ -258,8 +251,8 @@ def normSGPPitchers(cat_offsets, SP, RP):
 def reorder_cols(P):
     # Write the output header file
     column_order = ["Name", "xsal", "salary", "dsal", "mlb_team", "jabo_team", "IP", "ERA",
-                    "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP/GS", "sSO/BB",
-                    "sSO", "sW", "sSV", "sHLD", "IP/GS", "SO/BB", "SGP", "playerid", 'GS']
+                    "K/9", "BB/9", "SV", "HLD", "sERA", "sWHIP", "sIP", "sSO/BB",
+                    "sSO", "sW", "sSV", "sHLD", "SO/BB", "SGP", "playerid", 'GS']
     # Get an estimate for the expected salary
     N_topP = N_teams * (N_SP + N_RP) + 1
     sgp_sum = P['SGP'][:N_topP].sum()
@@ -269,12 +262,12 @@ def reorder_cols(P):
     P['xsal'] = P['SGP'] / sgp_sum * budget * frac_pitcher_budget * N_teams
     P['dsal'] = P['salary'] - P['xsal']
     # Round output columns
-    rounding_dict = {'SO/BB': 1, "IP/GS": 1, "sERA": 1, "sWHIP": 1, "sIP/GS": 1,
+    rounding_dict = {'SO/BB': 1, "IP": 1, "sERA": 1, "sWHIP": 1, "sIP": 1,
                      "sSO/BB": 1, "sSO": 1, "sW": 1, "sSV": 1, 'sHLD': 1,
                      'SGP': 1, 'xsal': 0, 'dsal': 0}
     P = P.round(rounding_dict)
     # Set column order
     P = P[column_order]
-    SP = P[P['GS']>0].reset_index(drop=True)
-    RP = P[P['GS']==0].reset_index(drop=True)
+    SP = P[P['GS'] > 0].reset_index(drop=True)
+    RP = P[P['GS'] == 0].reset_index(drop=True)
     return P, SP, RP
